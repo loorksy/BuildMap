@@ -75,82 +75,43 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Icon mapping for suggestions
 const iconMap = {
-  'globe': Globe,
-  'smartphone': Smartphone,
-  'server': Server,
-  'layers': Layers,
-  'users': Users,
-  'building': Building,
-  'code': Code,
-  'shopping-cart': ShoppingCart,
-  'clock': Clock,
-  'message-circle': MessageCircle,
-  'database': Database,
-  'zap': Zap,
-  'log-in': LogIn,
-  'layout-dashboard': LayoutDashboard,
-  'bell': Bell,
-  'search': Search,
-  'message-square': MessageSquare,
-  'bar-chart': BarChart3,
-  'terminal': Terminal,
-  'triangle': Triangle,
-  'sparkles': Sparkles,
-  'plus': Plus,
-  'lightbulb': Lightbulb,
-  'target': Target,
-  'palette': Palette,
-  'rocket': Rocket,
-  'settings': Settings
+  'globe': Globe, 'smartphone': Smartphone, 'server': Server, 'layers': Layers,
+  'users': Users, 'building': Building, 'code': Code, 'shopping-cart': ShoppingCart,
+  'clock': Clock, 'message-circle': MessageCircle, 'database': Database, 'zap': Zap,
+  'log-in': LogIn, 'layout-dashboard': LayoutDashboard, 'bell': Bell, 'search': Search,
+  'message-square': MessageSquare, 'bar-chart': BarChart3, 'terminal': Terminal,
+  'triangle': Triangle, 'sparkles': Sparkles, 'plus': Plus, 'lightbulb': Lightbulb,
+  'target': Target, 'palette': Palette, 'rocket': Rocket, 'settings': Settings
 };
 
 // Stage-based suggestions
 const stageSuggestions = {
   'idea_understanding': [
-    { text: 'تطبيق ويب', icon: 'globe' },
-    { text: 'تطبيق موبايل', icon: 'smartphone' },
-    { text: 'منصة تجارة إلكترونية', icon: 'shopping-cart' },
-    { text: 'نظام إدارة', icon: 'layout-dashboard' },
-    { text: 'شبكة اجتماعية', icon: 'users' },
+    { text: 'تطبيق ويب', icon: 'globe' }, { text: 'تطبيق موبايل', icon: 'smartphone' },
+    { text: 'منصة تجارة إلكترونية', icon: 'shopping-cart' }, { text: 'نظام إدارة', icon: 'layout-dashboard' },
   ],
   'target_audience': [
-    { text: 'أفراد', icon: 'users' },
-    { text: 'شركات صغيرة', icon: 'building' },
-    { text: 'مؤسسات كبيرة', icon: 'building' },
-    { text: 'طلاب', icon: 'users' },
-    { text: 'مطورين', icon: 'code' },
+    { text: 'أفراد', icon: 'users' }, { text: 'شركات صغيرة', icon: 'building' },
+    { text: 'مؤسسات كبيرة', icon: 'building' }, { text: 'مطورين', icon: 'code' },
   ],
   'features': [
-    { text: 'نظام تسجيل دخول', icon: 'log-in' },
-    { text: 'لوحة تحكم', icon: 'layout-dashboard' },
-    { text: 'إشعارات', icon: 'bell' },
-    { text: 'بحث متقدم', icon: 'search' },
-    { text: 'دردشة', icon: 'message-circle' },
-    { text: 'تحليلات', icon: 'bar-chart' },
+    { text: 'نظام تسجيل دخول', icon: 'log-in' }, { text: 'لوحة تحكم', icon: 'layout-dashboard' },
+    { text: 'إشعارات', icon: 'bell' }, { text: 'بحث متقدم', icon: 'search' },
   ],
   'technical': [
-    { text: 'React', icon: 'code' },
-    { text: 'Node.js', icon: 'server' },
-    { text: 'قاعدة بيانات', icon: 'database' },
-    { text: 'API', icon: 'terminal' },
-    { text: 'تكامل خارجي', icon: 'layers' },
+    { text: 'React', icon: 'code' }, { text: 'Node.js', icon: 'server' },
+    { text: 'قاعدة بيانات', icon: 'database' }, { text: 'API', icon: 'terminal' },
   ],
   'design': [
-    { text: 'تصميم بسيط', icon: 'palette' },
-    { text: 'وضع داكن', icon: 'palette' },
+    { text: 'تصميم بسيط', icon: 'palette' }, { text: 'وضع داكن', icon: 'palette' },
     { text: 'تصميم عصري', icon: 'sparkles' },
-    { text: 'واجهة عربية', icon: 'globe' },
   ],
   'timeline': [
-    { text: 'أسبوع', icon: 'clock' },
-    { text: 'شهر', icon: 'clock' },
-    { text: '3 أشهر', icon: 'clock' },
+    { text: 'أسبوع', icon: 'clock' }, { text: 'شهر', icon: 'clock' },
     { text: 'MVP سريع', icon: 'rocket' },
   ],
   'default': [
-    { text: 'أكمل الفكرة', icon: 'lightbulb' },
-    { text: 'أضف ميزة', icon: 'plus' },
-    { text: 'حدد الهدف', icon: 'target' },
+    { text: 'أكمل الفكرة', icon: 'lightbulb' }, { text: 'أضف ميزة', icon: 'plus' },
   ]
 };
 
@@ -161,7 +122,6 @@ const ProjectPage = () => {
   const { theme, toggleTheme } = useTheme();
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const chatContainerRef = useRef(null);
 
   const [project, setProject] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -172,22 +132,14 @@ const ProjectPage = () => {
   const [generating, setGenerating] = useState(false);
   const [messageInput, setMessageInput] = useState('');
   const [copiedTab, setCopiedTab] = useState(null);
-  const [activeTab, setActiveTab] = useState('chat');
-  
-  // Vibe Coding states
   const [analysis, setAnalysis] = useState(null);
   const [showPreview, setShowPreview] = useState(true);
   const [previewFile, setPreviewFile] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
 
-  useEffect(() => {
-    fetchProjectData();
-  }, [projectId]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  useEffect(() => { fetchProjectData(); }, [projectId]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const fetchProjectData = async () => {
     try {
@@ -196,28 +148,18 @@ const ProjectPage = () => {
         axios.get(`${API}/projects/${projectId}/messages`),
         axios.get(`${API}/models`)
       ]);
-      
       setProject(projectRes.data);
       setMessages(messagesRes.data);
       setModels(modelsRes.data);
-      
-      // Fetch analysis
       try {
         const analysisRes = await axios.get(`${API}/projects/${projectId}/analysis`);
         setAnalysis(analysisRes.data);
-      } catch (e) {
-        console.log('Analysis not available');
-      }
-      
-      // Fetch outputs
+      } catch (e) {}
       try {
         const outputsRes = await axios.get(`${API}/projects/${projectId}/outputs`);
         setOutputs(outputsRes.data);
-      } catch (e) {
-        // No outputs yet
-      }
+      } catch (e) {}
     } catch (error) {
-      console.error('Error fetching project:', error);
       toast.error(error.response?.data?.detail || 'حدث خطأ في تحميل المشروع');
       navigate('/dashboard');
     } finally {
@@ -225,49 +167,25 @@ const ProjectPage = () => {
     }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   const handleSendMessage = async (e, quickMessage = null) => {
     e?.preventDefault();
     const content = quickMessage || messageInput;
     if (!content.trim() || sending) return;
 
-    const userMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: content,
-      created_at: new Date().toISOString()
-    };
-
+    const userMessage = { id: Date.now().toString(), role: 'user', content, created_at: new Date().toISOString() };
     setMessages(prev => [...prev, userMessage]);
     setMessageInput('');
     setSending(true);
 
-    // Add a placeholder streaming message
     const streamingMsgId = (Date.now() + 1).toString();
-    const streamingMsg = {
-      id: streamingMsgId,
-      role: 'assistant',
-      content: '',
-      created_at: new Date().toISOString(),
-      isStreaming: true
-    };
-    setMessages(prev => [...prev, streamingMsg]);
+    setMessages(prev => [...prev, { id: streamingMsgId, role: 'assistant', content: '', created_at: new Date().toISOString(), isStreaming: true }]);
 
     try {
       const response = await fetch(`${API}/projects/${projectId}/messages/stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ content })
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || 'حدث خطأ في إرسال الرسالة');
-      }
+      if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail || 'حدث خطأ');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -276,54 +194,29 @@ const ProjectPage = () => {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
-          const dataStr = line.slice(6).trim();
-          if (!dataStr) continue;
-
           try {
-            const event = JSON.parse(dataStr);
-            
+            const event = JSON.parse(line.slice(6).trim());
             if (event.type === 'chunk') {
-              setMessages(prev => prev.map(m => 
-                m.id === streamingMsgId 
-                  ? { ...m, content: m.content + event.content }
-                  : m
-              ));
+              setMessages(prev => prev.map(m => m.id === streamingMsgId ? { ...m, content: m.content + event.content } : m));
             } else if (event.type === 'done') {
-              setMessages(prev => prev.map(m => 
-                m.id === streamingMsgId 
-                  ? { ...m, id: event.id, created_at: event.created_at, isStreaming: false }
-                  : m
-              ));
-              if (event.analysis) {
-                setAnalysis(event.analysis);
-              }
-              if (event.ready_to_generate) {
-                toast.success('المشروع جاهز لتوليد المخرجات!', {
-                  action: {
-                    label: 'توليد الآن',
-                    onClick: handleGenerateOutputs
-                  }
-                });
-              }
+              setMessages(prev => prev.map(m => m.id === streamingMsgId ? { ...m, id: event.id, created_at: event.created_at, isStreaming: false } : m));
+              if (event.analysis) setAnalysis(event.analysis);
+              if (event.ready_to_generate) toast.success('المشروع جاهز لتوليد المخرجات!');
             } else if (event.type === 'error') {
               toast.error(event.content);
               setMessages(prev => prev.filter(m => m.id !== streamingMsgId));
             }
-          } catch (parseErr) {
-            // ignore malformed SSE chunks
-          }
+          } catch (parseErr) {}
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error(error.message || 'حدث خطأ في إرسال الرسالة');
+      toast.error(error.message || 'حدث خطأ');
       setMessages(prev => prev.filter(m => m.id !== userMessage.id && m.id !== streamingMsgId));
     } finally {
       setSending(false);
@@ -331,19 +224,13 @@ const ProjectPage = () => {
     }
   };
 
-  const handleSuggestionClick = (suggestion) => {
-    handleSendMessage(null, suggestion.text);
-  };
-
   const handleGenerateOutputs = async () => {
     setGenerating(true);
     try {
       const response = await axios.post(`${API}/projects/${projectId}/generate`);
       setOutputs(response.data);
-      setActiveTab('frontend-readme');
       toast.success('تم توليد المخرجات بنجاح!');
     } catch (error) {
-      console.error('Error generating outputs:', error);
       toast.error(error.response?.data?.detail || 'حدث خطأ في توليد المخرجات');
     } finally {
       setGenerating(false);
@@ -371,28 +258,21 @@ const ProjectPage = () => {
     const blob = new Blob([content], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
+    a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleExportZip = async () => {
     setExporting(true);
     try {
-      const response = await axios.get(`${API}/projects/${projectId}/export`, {
-        responseType: 'blob'
-      });
+      const response = await axios.get(`${API}/projects/${projectId}/export`, { responseType: 'blob' });
       const url = URL.createObjectURL(response.data);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `BuildMap_${project?.title || 'project'}.zip`;
-      a.click();
+      a.href = url; a.download = `BuildMap_${project?.title || 'project'}.zip`; a.click();
       URL.revokeObjectURL(url);
-      toast.success('تم تحميل الملفات بنجاح!');
+      toast.success('تم تحميل الملفات!');
     } catch (error) {
-      console.error('Export error:', error);
-      toast.error(error.response?.data?.detail || 'حدث خطأ في تصدير الملفات');
+      toast.error('حدث خطأ في تصدير الملفات');
     } finally {
       setExporting(false);
     }
@@ -401,47 +281,28 @@ const ProjectPage = () => {
   const renderMarkdown = (content) => {
     if (!content) return null;
     return content.split('\n').map((line, i) => {
-      if (line.startsWith('# ')) {
-        return <h1 key={i} className="text-2xl font-bold mb-4 text-foreground">{line.slice(2)}</h1>;
-      }
-      if (line.startsWith('## ')) {
-        return <h2 key={i} className="text-xl font-semibold mb-3 text-foreground">{line.slice(3)}</h2>;
-      }
-      if (line.startsWith('### ')) {
-        return <h3 key={i} className="text-lg font-medium mb-2 text-foreground">{line.slice(4)}</h3>;
-      }
-      if (line.startsWith('- ')) {
-        return <li key={i} className="mr-4 mb-1 text-muted-foreground">{line.slice(2)}</li>;
-      }
-      if (line.startsWith('```')) return null;
-      if (line.trim() === '') return <br key={i} />;
-      return <p key={i} className="mb-2 text-muted-foreground leading-relaxed">{line}</p>;
+      if (line.startsWith('# ')) return <h1 key={i} className="text-base sm:text-lg font-bold mb-2 text-foreground">{line.slice(2)}</h1>;
+      if (line.startsWith('## ')) return <h2 key={i} className="text-sm sm:text-base font-semibold mb-2 text-foreground">{line.slice(3)}</h2>;
+      if (line.startsWith('### ')) return <h3 key={i} className="text-xs sm:text-sm font-medium mb-1 text-foreground">{line.slice(4)}</h3>;
+      if (line.startsWith('- ')) return <li key={i} className="mr-3 mb-0.5 text-muted-foreground text-xs">{line.slice(2)}</li>;
+      if (line.startsWith('```') || line.trim() === '') return line.trim() === '' ? <br key={i} /> : null;
+      return <p key={i} className="mb-1.5 text-muted-foreground text-xs leading-relaxed">{line}</p>;
     });
   };
 
-  const renderMindMap = (data) => {
-    return <InteractiveMindMap data={data} />;
-  };
-
-  // Get current stage suggestions
   const getCurrentStageSuggestions = () => {
-    if (analysis?.suggestions && analysis.suggestions.length > 0) {
-      return analysis.suggestions;
-    }
-    
-    const currentStage = analysis?.current_stage || 'default';
-    return stageSuggestions[currentStage] || stageSuggestions['default'];
+    if (analysis?.suggestions?.length > 0) return analysis.suggestions;
+    return stageSuggestions[analysis?.current_stage] || stageSuggestions['default'];
   };
 
-  // Get stage info
   const getStageInfo = (stageId) => {
     const stageNames = {
       'idea_understanding': { name: 'فهم الفكرة', icon: Lightbulb, color: 'text-yellow-500' },
-      'target_audience': { name: 'الجمهور المستهدف', icon: Users, color: 'text-blue-500' },
+      'target_audience': { name: 'الجمهور', icon: Users, color: 'text-blue-500' },
       'features': { name: 'الميزات', icon: Layers, color: 'text-purple-500' },
-      'technical': { name: 'المتطلبات التقنية', icon: Code, color: 'text-green-500' },
+      'technical': { name: 'التقنية', icon: Code, color: 'text-green-500' },
       'design': { name: 'التصميم', icon: Palette, color: 'text-pink-500' },
-      'timeline': { name: 'الجدول الزمني', icon: Clock, color: 'text-orange-500' },
+      'timeline': { name: 'الجدول', icon: Clock, color: 'text-orange-500' },
       'generation': { name: 'التوليد', icon: Rocket, color: 'text-red-500' },
     };
     return stageNames[stageId] || { name: stageId, icon: Target, color: 'text-gray-500' };
@@ -450,9 +311,9 @@ const ProjectPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          جاري التحميل...
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span className="text-xs">جاري التحميل...</span>
         </div>
       </div>
     );
@@ -475,43 +336,32 @@ const ProjectPage = () => {
       
       {/* Header */}
       <header className="glass border-b border-border/50 sticky top-0 z-50 shrink-0">
-        <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors-smooth p-2 hover:bg-muted rounded-lg">
-              <ArrowRight className="w-5 h-5" />
+        <div className="max-w-full mx-auto px-3 sm:px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors-smooth p-1.5 hover:bg-muted rounded-md">
+              <ArrowRight className="w-4 h-4" />
             </Link>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">{project?.title}</h1>
-            </div>
+            <h1 className="text-sm font-semibold text-foreground truncate max-w-[150px] sm:max-w-none">{project?.title}</h1>
           </div>
           
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setShowSidebar(!showSidebar)} 
-              className="rounded-xl transition-smooth lg:flex hidden"
-            >
-              {showSidebar ? <PanelRightClose className="w-5 h-5" /> : <PanelRight className="w-5 h-5" />}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Button variant="ghost" size="icon" onClick={() => setShowSidebar(!showSidebar)} className="w-7 h-7 rounded-md transition-smooth hidden lg:flex">
+              {showSidebar ? <PanelRightClose className="w-3.5 h-3.5" /> : <PanelRight className="w-3.5 h-3.5" />}
             </Button>
-            
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-xl transition-smooth">
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="w-7 h-7 rounded-md transition-smooth">
+              {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
             </Button>
-            
             <Select value={project?.selected_model} onValueChange={handleModelChange}>
-              <SelectTrigger className="w-40 rounded-xl text-sm" data-testid="project-model-select">
+              <SelectTrigger className="w-28 sm:w-32 rounded-md text-[10px] sm:text-xs h-7" data-testid="project-model-select">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="max-h-80 rounded-xl">
-                <ScrollArea className="h-72">
+              <SelectContent className="max-h-64 rounded-lg">
+                <ScrollArea className="h-56">
                   {models.map((model) => (
-                    <SelectItem key={model.id} value={model.id} className="text-sm rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <span>{model.name}</span>
-                        {model.is_free && (
-                          <Badge className="badge-success text-xs">مجاني</Badge>
-                        )}
+                    <SelectItem key={model.id} value={model.id} className="text-xs rounded-md">
+                      <div className="flex items-center gap-1">
+                        <span className="truncate">{model.name}</span>
+                        {model.is_free && <Badge className="badge-success text-[8px] h-3.5 px-1">مجاني</Badge>}
                       </div>
                     </SelectItem>
                   ))}
@@ -527,85 +377,49 @@ const ProjectPage = () => {
         {/* Chat Section */}
         <div className="flex-1 flex flex-col min-w-0">
           
-          {/* Progress Bar - New Design */}
+          {/* Progress Bar */}
           {analysis && (
-            <div className="bg-gradient-to-l from-card via-card/80 to-card border-b border-border/50 px-4 py-4 shrink-0">
-              <div className="max-w-4xl mx-auto">
-                {/* Progress Header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-l from-card via-card/80 to-card border-b border-border/50 px-3 sm:px-4 py-2.5 sm:py-3 shrink-0">
+              <div className="max-w-3xl mx-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
                     {(() => {
                       const stageInfo = getStageInfo(analysis.current_stage);
                       const StageIcon = stageInfo.icon;
                       return (
                         <>
-                          <div className={`w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center`}>
-                            <StageIcon className={`w-5 h-5 ${stageInfo.color}`} />
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <StageIcon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${stageInfo.color}`} />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-foreground">{stageInfo.name}</p>
-                            <p className="text-xs text-muted-foreground">المرحلة الحالية</p>
+                            <p className="text-[10px] sm:text-xs font-medium text-foreground">{stageInfo.name}</p>
+                            <p className="text-[9px] sm:text-[10px] text-muted-foreground">المرحلة الحالية</p>
                           </div>
                         </>
                       );
                     })()}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold text-primary">{Math.round(analysis.total_progress)}%</span>
-                  </div>
+                  <span className="text-base sm:text-lg font-bold text-primary">{Math.round(analysis.total_progress)}%</span>
                 </div>
                 
-                {/* Progress Bar */}
-                <div className="relative h-3 bg-muted rounded-full overflow-hidden mb-3">
-                  <div 
-                    className="absolute inset-y-0 right-0 bg-gradient-to-l from-primary to-blue-500 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${analysis.total_progress}%` }}
-                  />
-                  {/* Stage markers */}
-                  <div className="absolute inset-0 flex items-center justify-between px-1">
-                    {analysis.stages?.slice(0, -1).map((stage, idx) => {
-                      const position = ((idx + 1) / (analysis.stages.length - 1)) * 100;
-                      const isCompleted = analysis.completed_stages?.includes(stage.id);
-                      return (
-                        <div 
-                          key={stage.id}
-                          className={`w-2 h-2 rounded-full transition-all ${
-                            isCompleted ? 'bg-white shadow-sm' : 'bg-muted-foreground/30'
-                          }`}
-                          style={{ position: 'absolute', right: `${position}%`, transform: 'translateX(50%)' }}
-                        />
-                      );
-                    })}
-                  </div>
+                <div className="relative h-2 bg-muted rounded-full overflow-hidden mb-2">
+                  <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-primary to-blue-500 rounded-full transition-all duration-500 ease-out" style={{ width: `${analysis.total_progress}%` }} />
                 </div>
                 
-                {/* Stage Pills */}
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                  {analysis.stages?.slice(0, -1).map((stage, idx) => {
+                <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                  {analysis.stages?.slice(0, -1).map((stage) => {
                     const isCompleted = analysis.completed_stages?.includes(stage.id);
                     const isCurrent = analysis.current_stage === stage.id;
                     const stageInfo = getStageInfo(stage.id);
                     const StageIcon = stageInfo.icon;
-                    
                     return (
-                      <div 
-                        key={stage.id}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                          isCompleted 
-                            ? 'bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20' 
-                            : isCurrent 
-                              ? 'bg-primary/15 text-primary border-2 border-primary/40 shadow-sm' 
-                              : 'bg-muted/50 text-muted-foreground border border-transparent'
-                        }`}
-                      >
-                        {isCompleted ? (
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                        ) : isCurrent ? (
-                          <StageIcon className="w-3.5 h-3.5 animate-pulse" />
-                        ) : (
-                          <div className="w-3.5 h-3.5 rounded-full border-2 border-current opacity-50" />
-                        )}
-                        {stage.name}
+                      <div key={stage.id} className={`flex items-center gap-1 px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-medium whitespace-nowrap transition-all ${
+                        isCompleted ? 'bg-green-500/15 text-green-600 dark:text-green-400' 
+                        : isCurrent ? 'bg-primary/15 text-primary border border-primary/30' 
+                        : 'bg-muted/50 text-muted-foreground'
+                      }`}>
+                        {isCompleted ? <CheckCircle2 className="w-2.5 h-2.5" /> : isCurrent ? <StageIcon className="w-2.5 h-2.5 animate-pulse" /> : <div className="w-2.5 h-2.5 rounded-full border border-current opacity-50" />}
+                        <span className="hidden sm:inline">{stage.name}</span>
                       </div>
                     );
                   })}
@@ -615,43 +429,27 @@ const ProjectPage = () => {
           )}
 
           {/* Messages Area */}
-          <div 
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto"
-          >
-            <div className="max-w-3xl mx-auto p-4 space-y-4 pb-4">
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-3xl mx-auto p-3 sm:p-4 space-y-3">
               {messages.length === 0 && (
-                <div className="text-center py-16 animate-fade-in">
-                  <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                    <MessageSquare className="w-10 h-10 text-primary" />
+                <div className="text-center py-10 sm:py-14 animate-fade-in">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-2">ابدأ المحادثة</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto">
-                    اكتب فكرتك أو اختر من الاقتراحات أدناه لبدء رحلة تحويل فكرتك إلى مشروع
-                  </p>
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground mb-1">ابدأ المحادثة</h3>
+                  <p className="text-muted-foreground text-xs sm:text-sm max-w-sm mx-auto">اكتب فكرتك أو اختر من الاقتراحات</p>
                 </div>
               )}
               
               {messages.map((message, index) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'} animate-fade-in`}
-                  style={{ animationDelay: `${Math.min(index * 0.02, 0.2)}s` }}
-                >
-                  <div
-                    className={`max-w-[85%] p-4 ${
-                      message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'
-                    }`}
-                    data-testid={`message-${message.role}`}
-                  >
-                    <p className="whitespace-pre-wrap leading-relaxed">
+                <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'} animate-fade-in`}>
+                  <div className={`max-w-[90%] sm:max-w-[85%] p-2.5 sm:p-3 ${message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'}`}>
+                    <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
                       {message.content}
-                      {message.isStreaming && (
-                        <span className="inline-block w-2 h-5 bg-primary animate-pulse mr-1 align-middle rounded-sm" />
-                      )}
+                      {message.isStreaming && <span className="inline-block w-1.5 h-4 bg-primary animate-pulse mr-0.5 align-middle rounded-sm" />}
                     </p>
                     {!message.isStreaming && (
-                      <span className={`text-xs mt-2 block ${message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                      <span className={`text-[9px] sm:text-[10px] mt-1.5 block ${message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                         {new Date(message.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
@@ -661,16 +459,15 @@ const ProjectPage = () => {
               
               {sending && !messages.some(m => m.isStreaming) && (
                 <div className="flex justify-end animate-fade-in">
-                  <div className="chat-bubble-assistant p-4">
-                    <div className="flex items-center gap-1.5">
-                      <span className="loading-dot w-2 h-2 bg-primary rounded-full"></span>
-                      <span className="loading-dot w-2 h-2 bg-primary rounded-full"></span>
-                      <span className="loading-dot w-2 h-2 bg-primary rounded-full"></span>
+                  <div className="chat-bubble-assistant p-3">
+                    <div className="flex items-center gap-1">
+                      <span className="loading-dot w-1.5 h-1.5 bg-primary rounded-full"></span>
+                      <span className="loading-dot w-1.5 h-1.5 bg-primary rounded-full"></span>
+                      <span className="loading-dot w-1.5 h-1.5 bg-primary rounded-full"></span>
                     </div>
                   </div>
                 </div>
               )}
-              
               <div ref={messagesEndRef} />
             </div>
           </div>
@@ -679,66 +476,53 @@ const ProjectPage = () => {
           <div className="shrink-0 border-t border-border/50 bg-background">
             {/* Generate Button */}
             {(analysis?.ready_to_generate || analysis?.total_progress >= 60 || outputs) && !generating && (
-              <div className="p-3 bg-gradient-to-r from-primary/10 via-primary/5 to-blue-500/10 border-b border-border/50">
+              <div className="p-2.5 bg-gradient-to-r from-primary/10 via-primary/5 to-blue-500/10 border-b border-border/50">
                 <div className="max-w-3xl mx-auto flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center animate-bounce-soft">
-                      <Sparkles className="w-5 h-5 text-primary" />
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center animate-bounce-soft">
+                      <Sparkles className="w-4 h-4 text-primary" />
                     </div>
                     <div>
-                      <span className="font-medium text-foreground block">
-                        {outputs ? 'المخرجات جاهزة' : 'جاهز لتوليد الملفات!'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {outputs ? 'يمكنك إعادة التوليد' : '6 ملفات احترافية'}
-                      </span>
+                      <span className="font-medium text-foreground text-xs block">{outputs ? 'المخرجات جاهزة' : 'جاهز للتوليد!'}</span>
+                      <span className="text-[10px] text-muted-foreground">{outputs ? 'يمكنك إعادة التوليد' : '6 ملفات احترافية'}</span>
                     </div>
                   </div>
-                  <Button
-                    onClick={handleGenerateOutputs}
-                    className="btn-primary rounded-xl shadow-glow hover:shadow-glow-lg"
-                    data-testid="generate-outputs-btn"
-                  >
-                    <Sparkles className="w-4 h-4 ml-2" />
-                    {outputs ? 'إعادة التوليد' : 'توليد'}
+                  <Button size="sm" onClick={handleGenerateOutputs} className="btn-primary rounded-lg shadow-glow h-8 text-xs" data-testid="generate-outputs-btn">
+                    <Sparkles className="w-3 h-3 ml-1" />
+                    {outputs ? 'إعادة' : 'توليد'}
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* Generating Status */}
             {generating && (
-              <div className="p-3 bg-primary border-b border-primary">
-                <div className="max-w-3xl mx-auto flex items-center justify-center gap-3 text-primary-foreground">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="font-medium">جاري توليد 6 ملفات...</span>
+              <div className="p-2.5 bg-primary border-b border-primary">
+                <div className="max-w-3xl mx-auto flex items-center justify-center gap-2 text-primary-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="text-xs font-medium">جاري التوليد...</span>
                 </div>
               </div>
             )}
 
-            {/* Quick Suggestions - Stage Based */}
+            {/* Quick Suggestions */}
             {!sending && !generating && currentSuggestions.length > 0 && (
-              <div className="px-4 py-3 bg-muted/30 border-b border-border/50">
+              <div className="px-3 sm:px-4 py-2 bg-muted/30 border-b border-border/50">
                 <div className="max-w-3xl mx-auto">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Lightbulb className="w-3.5 h-3.5 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground font-medium">
-                      اقتراحات {analysis?.current_stage ? `لمرحلة ${getStageInfo(analysis.current_stage).name}` : 'سريعة'}:
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Lightbulb className="w-3 h-3 text-muted-foreground" />
+                    <p className="text-[9px] sm:text-[10px] text-muted-foreground font-medium">
+                      اقتراحات {analysis?.current_stage ? `لـ${getStageInfo(analysis.current_stage).name}` : ''}:
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {currentSuggestions.map((suggestion, idx) => {
                       const IconComponent = iconMap[suggestion.icon] || Sparkles;
                       return (
-                        <Button
-                          key={idx}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSuggestionClick(suggestion)}
-                          className="rounded-full text-xs h-8 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
+                        <Button key={idx} variant="outline" size="sm" onClick={() => handleSendMessage(null, suggestion.text)}
+                          className="rounded-full text-[10px] sm:text-xs h-6 sm:h-7 px-2 sm:px-2.5 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
                           data-testid={`suggestion-${idx}`}
                         >
-                          <IconComponent className="w-3.5 h-3.5 ml-1.5" />
+                          <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3 ml-1" />
                           {suggestion.text}
                         </Button>
                       );
@@ -748,32 +532,21 @@ const ProjectPage = () => {
               </div>
             )}
 
-            {/* Input Area - Always Fixed at Bottom */}
-            <div className="p-4 bg-background">
+            {/* Input Area */}
+            <div className="p-3 sm:p-4 bg-background">
               <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
-                <div className="flex gap-3 items-center">
-                  <div className="flex-1 relative">
-                    <Input
-                      ref={inputRef}
-                      value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      placeholder="اكتب رسالتك هنا..."
-                      className="h-12 pr-4 pl-12 rounded-xl border-border input-enhanced text-base"
-                      disabled={sending || generating}
-                      data-testid="chat-input"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    disabled={!messageInput.trim() || sending || generating}
-                    className="h-12 w-12 btn-primary rounded-xl shrink-0"
-                    data-testid="send-message-btn"
-                  >
-                    {sending ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
+                <div className="flex gap-2 items-center">
+                  <Input
+                    ref={inputRef}
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    placeholder="اكتب رسالتك..."
+                    className="flex-1 h-9 sm:h-10 pr-3 pl-10 rounded-lg border-border input-enhanced text-xs sm:text-sm"
+                    disabled={sending || generating}
+                    data-testid="chat-input"
+                  />
+                  <Button type="submit" disabled={!messageInput.trim() || sending || generating} className="h-9 sm:h-10 w-9 sm:w-10 btn-primary rounded-lg shrink-0" data-testid="send-message-btn">
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </Button>
                 </div>
               </form>
@@ -781,111 +554,43 @@ const ProjectPage = () => {
           </div>
         </div>
 
-        {/* Side Panel - Project Summary & Files Preview */}
+        {/* Side Panel */}
         {showSidebar && (
-          <div className="w-80 border-r border-border/50 bg-card/50 backdrop-blur-sm hidden lg:flex flex-col shrink-0">
+          <div className="w-64 sm:w-72 border-r border-border/50 bg-card/50 backdrop-blur-sm hidden lg:flex flex-col shrink-0">
             {/* Project Summary */}
-            <div className="p-4 border-b border-border/50">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <Eye className="w-4 h-4" />
+            <div className="p-3 border-b border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-foreground flex items-center gap-1.5 text-xs">
+                  <Eye className="w-3.5 h-3.5" />
                   ملخص المشروع
                 </h3>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setShowPreview(!showPreview)}
-                  className="h-6 w-6 p-0 rounded-lg"
-                >
-                  {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                <Button variant="ghost" size="sm" onClick={() => setShowPreview(!showPreview)} className="h-5 w-5 p-0 rounded-md">
+                  {showPreview ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </Button>
               </div>
               
               {showPreview && analysis?.project_summary && (
-                <div className="space-y-3 animate-fade-in">
-                  <div className="flex items-center gap-2">
-                    <Badge className="badge-primary">
-                      {analysis.project_summary.type}
-                    </Badge>
-                    {analysis.complexity?.level_ar && (
-                      <Badge variant="outline" className="text-xs">
-                        {analysis.complexity.level_ar}
-                      </Badge>
-                    )}
+                <div className="space-y-2 animate-fade-in">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge className="badge-primary text-[9px] h-4 px-1.5">{analysis.project_summary.type}</Badge>
+                    {analysis.complexity?.level_ar && <Badge variant="outline" className="text-[9px] h-4 px-1.5">{analysis.complexity.level_ar}</Badge>}
                   </div>
-                  
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">الفكرة:</p>
-                    <p className="text-sm text-foreground leading-relaxed">{analysis.project_summary.idea_summary}</p>
+                    <p className="text-[9px] text-muted-foreground mb-0.5 font-medium">الفكرة:</p>
+                    <p className="text-[10px] text-foreground leading-relaxed">{analysis.project_summary.idea_summary}</p>
                   </div>
-                  
                   {analysis.complexity?.estimated_time && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      <span>الوقت المقدر: {analysis.complexity.estimated_time}</span>
+                    <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+                      <Clock className="w-2.5 h-2.5" />
+                      <span>الوقت: {analysis.complexity.estimated_time}</span>
                     </div>
                   )}
-                  
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">الميزات المكتشفة:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {analysis.project_summary.features?.slice(0, 4).map((f, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {f.length > 20 ? f.slice(0, 20) + '...' : f}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {analysis.project_summary.technologies?.length > 0 && (
+                  {analysis.project_summary.features?.length > 0 && (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1 font-medium">التقنيات:</p>
+                      <p className="text-[9px] text-muted-foreground mb-0.5 font-medium">الميزات:</p>
                       <div className="flex flex-wrap gap-1">
-                        {analysis.project_summary.technologies.map((t, i) => (
-                          <Badge key={i} className="badge-info text-xs">
-                            {t}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Skills */}
-                  {analysis.suggested_skills?.length > 0 && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 font-medium">
-                        <BookOpen className="w-3 h-3" />
-                        المهارات المقترحة:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {analysis.suggested_skills.map((s, i) => (
-                          <Badge key={i} className="badge-warning text-xs">
-                            {s.name_ar}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Verification */}
-                  {analysis.verification?.length > 0 && (
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 font-medium">
-                        <Shield className="w-3 h-3" />
-                        التحقق:
-                      </p>
-                      <div className="space-y-1">
-                        {analysis.verification.map((v, i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-xs">
-                            {v.passed ? (
-                              <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
-                            ) : (
-                              <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
-                            )}
-                            <span className={v.passed ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
-                              {v.message}
-                            </span>
-                          </div>
+                        {analysis.project_summary.features.slice(0, 3).map((f, i) => (
+                          <Badge key={i} variant="outline" className="text-[8px] h-4 px-1">{f.slice(0, 15)}</Badge>
                         ))}
                       </div>
                     </div>
@@ -897,92 +602,59 @@ const ProjectPage = () => {
             {/* Files Preview */}
             {outputs && (
               <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-border/50 flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
-                    معاينة الملفات
+                <div className="p-3 border-b border-border/50 flex items-center justify-between">
+                  <h3 className="font-medium text-foreground flex items-center gap-1.5 text-xs">
+                    <FileText className="w-3.5 h-3.5" />
+                    الملفات
                   </h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportZip}
-                    disabled={exporting}
-                    className="h-7 text-xs rounded-lg gap-1 transition-smooth"
-                    data-testid="export-zip-btn"
-                  >
-                    {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderArchive className="w-3 h-3" />}
-                    {exporting ? 'جاري...' : 'تصدير ZIP'}
+                  <Button variant="outline" size="sm" onClick={handleExportZip} disabled={exporting} className="h-6 text-[10px] rounded-md gap-1 px-1.5" data-testid="export-zip-btn">
+                    {exporting ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <FolderArchive className="w-2.5 h-2.5" />}
+                    ZIP
                   </Button>
                 </div>
-                
                 <div className="p-2 border-b border-border/50">
                   <div className="grid grid-cols-3 gap-1">
                     {outputTabs.map((tab) => (
-                      <Button
-                        key={tab.id}
-                        variant={previewFile === tab.id ? "default" : "ghost"}
-                        size="sm"
+                      <Button key={tab.id} variant={previewFile === tab.id ? "default" : "ghost"} size="sm"
                         onClick={() => setPreviewFile(previewFile === tab.id ? null : tab.id)}
-                        className={`text-xs h-8 rounded-lg transition-smooth ${previewFile === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                        className={`text-[9px] h-6 rounded-md transition-smooth ${previewFile === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
                       >
-                        <tab.icon className="w-3 h-3 ml-1" />
+                        <tab.icon className="w-2.5 h-2.5 ml-0.5" />
                         {tab.label}
                       </Button>
                     ))}
                   </div>
                 </div>
-                
                 {previewFile && (
-                  <ScrollArea className="flex-1 p-4">
-                    <div className="flex items-center justify-end gap-2 mb-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopy(outputTabs.find(t => t.id === previewFile)?.content, previewFile)}
-                        className="h-7 text-xs rounded-lg"
-                      >
-                        {copiedTab === previewFile ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  <ScrollArea className="flex-1 p-3">
+                    <div className="flex items-center justify-end gap-1.5 mb-2">
+                      <Button variant="ghost" size="sm" onClick={() => handleCopy(outputTabs.find(t => t.id === previewFile)?.content, previewFile)} className="h-5 w-5 p-0 rounded-md">
+                        {copiedTab === previewFile ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const tab = outputTabs.find(t => t.id === previewFile);
-                          handleDownload(tab?.content, tab?.filename);
-                        }}
-                        className="h-7 text-xs rounded-lg"
-                      >
-                        <Download className="w-3 h-3" />
+                      <Button variant="ghost" size="sm" onClick={() => { const tab = outputTabs.find(t => t.id === previewFile); handleDownload(tab?.content, tab?.filename); }} className="h-5 w-5 p-0 rounded-md">
+                        <Download className="w-2.5 h-2.5" />
                       </Button>
                     </div>
-                    <div className="prose prose-sm max-w-none text-xs">
-                      {previewFile === 'mindmap' 
-                        ? renderMindMap(outputTabs.find(t => t.id === previewFile)?.content)
-                        : renderMarkdown(outputTabs.find(t => t.id === previewFile)?.content)
-                      }
+                    <div className="prose prose-sm max-w-none">
+                      {previewFile === 'mindmap' ? <InteractiveMindMap data={outputTabs.find(t => t.id === previewFile)?.content} /> : renderMarkdown(outputTabs.find(t => t.id === previewFile)?.content)}
                     </div>
                   </ScrollArea>
                 )}
-                
                 {!previewFile && (
-                  <div className="flex-1 flex items-center justify-center p-4">
-                    <p className="text-sm text-muted-foreground text-center">
-                      اختر ملفاً لمعاينته
-                    </p>
+                  <div className="flex-1 flex items-center justify-center p-3">
+                    <p className="text-[10px] text-muted-foreground text-center">اختر ملفاً لمعاينته</p>
                   </div>
                 )}
               </div>
             )}
             
             {!outputs && (
-              <div className="flex-1 flex items-center justify-center p-4">
+              <div className="flex-1 flex items-center justify-center p-3">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    <FileText className="w-8 h-8 text-muted-foreground/50" />
+                  <div className="w-10 h-10 bg-muted rounded-xl flex items-center justify-center mx-auto mb-2">
+                    <FileText className="w-5 h-5 text-muted-foreground/50" />
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    ستظهر الملفات هنا بعد التوليد
-                  </p>
+                  <p className="text-[10px] text-muted-foreground">ستظهر الملفات بعد التوليد</p>
                 </div>
               </div>
             )}

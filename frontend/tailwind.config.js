@@ -69,16 +69,16 @@ module.exports = {
                         mono: ['IBM Plex Mono', 'SF Mono', 'Monaco', 'monospace']
                 },
                 fontSize: {
-                        'xs': ['0.75rem', { lineHeight: '1.4' }],
-                        'sm': ['0.875rem', { lineHeight: '1.5' }],
-                        'base': ['1rem', { lineHeight: '1.6' }],
-                        'lg': ['1.125rem', { lineHeight: '1.6' }],
-                        'xl': ['1.25rem', { lineHeight: '1.5' }],
-                        '2xl': ['1.5rem', { lineHeight: '1.4' }],
-                        '3xl': ['1.875rem', { lineHeight: '1.3' }],
-                        '4xl': ['2.25rem', { lineHeight: '1.2' }],
-                        '5xl': ['3rem', { lineHeight: '1.15' }],
-                        '6xl': ['3.75rem', { lineHeight: '1.1' }]
+                        'xs': ['0.6875rem', { lineHeight: '1.4' }],      // 11px
+                        'sm': ['0.8125rem', { lineHeight: '1.5' }],      // 13px
+                        'base': ['0.875rem', { lineHeight: '1.5' }],     // 14px
+                        'lg': ['0.9375rem', { lineHeight: '1.5' }],      // 15px
+                        'xl': ['1.0625rem', { lineHeight: '1.4' }],      // 17px
+                        '2xl': ['1.25rem', { lineHeight: '1.35' }],      // 20px
+                        '3xl': ['1.5rem', { lineHeight: '1.3' }],        // 24px
+                        '4xl': ['1.875rem', { lineHeight: '1.2' }],      // 30px
+                        '5xl': ['2.25rem', { lineHeight: '1.15' }],      // 36px
+                        '6xl': ['2.75rem', { lineHeight: '1.1' }]        // 44px
                 },
                 letterSpacing: {
                         tighter: '-0.03em',
