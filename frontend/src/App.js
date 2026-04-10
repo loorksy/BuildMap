@@ -9,6 +9,12 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProjectPage from "./pages/ProjectPage";
+// Phase 1 - New Pages
+import ExplorePage from "./pages/ExplorePage";
+import UserProfilePage from "./pages/UserProfilePage";
+import PublicProjectPage from "./pages/PublicProjectPage";
+import SavedProjectsPage from "./pages/SavedProjectsPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 // Public route - redirect to dashboard if logged in
 const PublicRoute = ({ children }) => {
@@ -60,6 +66,22 @@ function AppRoutes() {
           <ProjectPage />
         </ProtectedRoute>
       } />
+      
+      {/* Phase 1 - Community Routes */}
+      <Route path="/explore" element={<ExplorePage />} />
+      <Route path="/profile/:userId" element={<UserProfilePage />} />
+      <Route path="/project/:projectId/public" element={<PublicProjectPage />} />
+      <Route path="/saves" element={
+        <ProtectedRoute>
+          <SavedProjectsPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/notifications" element={
+        <ProtectedRoute>
+          <NotificationsPage />
+        </ProtectedRoute>
+      } />
+      
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

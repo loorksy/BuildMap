@@ -2539,6 +2539,111 @@ async def get_public_project(project_id: str):
         logger.error(f"Error getting public project: {e}")
         raise HTTPException(status_code=500, detail="حدث خطأ")
 
+# ==================== EXPLORE & FEED APIS ====================
+
+@api_router.get("/explore")
+async def explore_projects(
+    category: Optional[str] = None,
+    tech: Optional[str] = None,
+    status: Optional[str] = None,
+    sort: str = "newest",
+    q: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20
+):
+    """Get public projects feed with filters"""
+    try:
+        skip = (page - 1) * limit
+        
+        # Build query
+        query = {"visibility": "public"}
+        
+        if category:
+            query["category"] = category
+        
+        if tech:
+            tech_list = tech.split(',')
+            query["tech_stack"] = {"$in": tech_list}
+        
+        if status:
+            query["status"] = status
+        
+        if q:
+            query["$or"] = [
+                {"title": {"$regex": q, "$options": "i"}},
+                {"description": {"$regex": q, "$options": "i"}}
+            ]
+        
+        # Sort
+        sort_options = {
+            "newest": [("published_at", -1)],
+            "trending": [("stats.views", -1), ("published_at", -1)],
+            "most_viewed": [("stats.views", -1)],
+            "for_sale": [("for_sale", -1), ("published_at", -1)]
+        }
+        
+        sort_by = sort_options.get(sort, [("published_at", -1)])
+        
+        # Get projects
+        projects = await public_projects_collection.find(query, {"_id": 0}).sort(sort_by).skip(skip).limit(limit).to_list(limit)
+        
+        # Enrich with owner info
+        for project in projects:
+            owner = await get_user_profile_data(project["owner_id"])
+            if owner:
+                project["owner_name"] = owner["name"]
+                project["owner_avatar"] = owner.get("profile", {}).get("avatar")
+        
+        return {"projects": projects, "page": page, "limit": limit}
+    except Exception as e:
+        logger.error(f"Error in explore: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.get("/explore/trending")
+async def get_trending_projects(limit: int = 10):
+    """Get trending projects"""
+    try:
+        # Projects with high engagement (views + comments + saves)
+        projects = await public_projects_collection.find(
+            {"visibility": "public"},
+            {"_id": 0}
+        ).sort([("stats.views", -1), ("stats.comments_count", -1)]).limit(limit).to_list(limit)
+        
+        # Enrich with owner info
+        for project in projects:
+            owner = await get_user_profile_data(project["owner_id"])
+            if owner:
+                project["owner_name"] = owner["name"]
+                project["owner_avatar"] = owner.get("profile", {}).get("avatar")
+        
+        return {"projects": projects}
+    except Exception as e:
+        logger.error(f"Error getting trending: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.get("/users/{user_id}/projects")
+async def get_user_projects(user_id: str, page: int = 1, limit: int = 20):
+    """Get user's public projects"""
+    try:
+        skip = (page - 1) * limit
+        
+        projects = await public_projects_collection.find(
+            {"owner_id": user_id, "visibility": {"$in": ["public", "unlisted"]}},
+            {"_id": 0}
+        ).sort("published_at", -1).skip(skip).limit(limit).to_list(limit)
+        
+        # Get owner info
+        owner = await get_user_profile_data(user_id)
+        for project in projects:
+            if owner:
+                project["owner_name"] = owner["name"]
+                project["owner_avatar"] = owner.get("profile", {}).get("avatar")
+        
+        return {"projects": projects, "page": page, "limit": limit}
+    except Exception as e:
+        logger.error(f"Error getting user projects: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
 # ==================== ROOT ====================
 
 @api_router.get("/")
