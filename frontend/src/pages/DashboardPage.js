@@ -46,7 +46,7 @@ import {
   CheckCircle,
   ExternalLink,
   Loader2,
-  Shield
+  MoreVertical
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
@@ -225,10 +225,10 @@ const DashboardPage = () => {
       <Toaster position="top-center" richColors />
       
       {/* Header */}
-      <header className="glass border-b border-border sticky top-0 z-50">
+      <header className="glass border-b border-border/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+          <div className="flex items-center gap-3 group">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center shadow-glow transition-smooth group-hover:shadow-glow-lg">
               <span className="text-primary-foreground font-black text-lg">B</span>
             </div>
             <span className="text-xl font-bold text-foreground tracking-tight">BuildMap</span>
@@ -240,7 +240,7 @@ const DashboardPage = () => {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="rounded-xl"
+              className="rounded-xl transition-smooth"
               data-testid="theme-toggle-btn"
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -250,11 +250,11 @@ const DashboardPage = () => {
             <Button
               variant="ghost"
               onClick={() => setShowApiKeyDialog(true)}
-              className={`flex items-center gap-2 rounded-xl ${apiKeyInfo?.has_key ? 'text-green-600 dark:text-green-400' : 'text-orange-500'}`}
+              className={`flex items-center gap-2 rounded-xl transition-smooth ${apiKeyInfo?.has_key ? 'text-green-600 dark:text-green-400 hover:bg-green-500/10' : 'text-orange-500 hover:bg-orange-500/10'}`}
               data-testid="api-key-status-btn"
             >
               <Key className="w-4 h-4" />
-              <span className="hidden sm:inline">
+              <span className="hidden sm:inline text-sm font-medium">
                 {apiKeyInfo?.has_key ? 'API متصل' : 'إعداد API'}
               </span>
             </Button>
@@ -262,11 +262,11 @@ const DashboardPage = () => {
             {/* User Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 rounded-xl" data-testid="user-menu-btn">
-                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                <Button variant="ghost" className="flex items-center gap-2 rounded-xl transition-smooth" data-testid="user-menu-btn">
+                  <div className="w-8 h-8 bg-gradient-to-br from-primary to-blue-600 rounded-full flex items-center justify-center">
                     <User className="w-4 h-4 text-primary-foreground" />
                   </div>
-                  <span className="hidden sm:inline text-foreground">{user?.name}</span>
+                  <span className="hidden sm:inline text-foreground font-medium">{user?.name}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48 rounded-xl">
@@ -288,27 +288,29 @@ const DashboardPage = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+        <div className="mb-8 animate-fade-in">
+          <h1 className="text-headline text-foreground mb-2">
             مرحباً، {user?.name}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             ابدأ مشروعاً جديداً أو تابع العمل على مشاريعك السابقة
           </p>
         </div>
 
         {/* API Key Warning */}
         {!apiKeyInfo?.has_key && (
-          <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mb-8 flex items-center justify-between">
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mb-8 flex items-center justify-between animate-scale-in">
             <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-orange-500" />
-              <span className="text-orange-600 dark:text-orange-400">
+              <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-orange-500" />
+              </div>
+              <span className="text-orange-600 dark:text-orange-400 font-medium">
                 يجب إضافة مفتاح OpenRouter API لاستخدام المنصة
               </span>
             </div>
             <Button 
               onClick={() => setShowApiKeyDialog(true)}
-              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl"
+              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-smooth"
               data-testid="add-api-key-warning-btn"
             >
               إضافة مفتاح
@@ -318,10 +320,10 @@ const DashboardPage = () => {
 
         {/* Projects Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-foreground">مشاريعك</h2>
+          <h2 className="text-title text-foreground">مشاريعك</h2>
           <Button
             onClick={() => setShowNewProject(true)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl flex items-center gap-2"
+            className="btn-primary font-semibold rounded-xl flex items-center gap-2"
             data-testid="new-project-btn"
           >
             <Plus className="w-4 h-4" />
@@ -331,36 +333,37 @@ const DashboardPage = () => {
 
         {/* Projects Grid */}
         {projects.length === 0 ? (
-          <div className="bg-card border border-border rounded-2xl p-12 text-center">
-            <FolderOpen className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">لا توجد مشاريع</h3>
+          <div className="card-elevated p-12 text-center animate-fade-in">
+            <div className="w-20 h-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <FolderOpen className="w-10 h-10 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">لا توجد مشاريع</h3>
             <p className="text-muted-foreground mb-6">ابدأ بإنشاء مشروعك الأول لتحويل فكرتك إلى واقع</p>
             <Button
               onClick={() => setShowNewProject(true)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl"
+              className="btn-primary font-semibold rounded-xl"
               data-testid="empty-new-project-btn"
             >
               إنشاء مشروع جديد
             </Button>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((project) => (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((project, index) => (
               <div
                 key={project.id}
-                className="bg-card border border-border rounded-2xl p-6 hover:border-primary/30 hover:shadow-lg transition-all duration-300 group"
+                className="card-elevated p-6 interactive-card group animate-fade-in"
+                style={{ animationDelay: `${index * 0.05}s` }}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                  <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors-smooth line-clamp-1">
                     {project.title}
                   </h3>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
                         <span className="sr-only">القائمة</span>
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                        </svg>
+                        <MoreVertical className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="rounded-xl">
@@ -376,17 +379,17 @@ const DashboardPage = () => {
                   </DropdownMenu>
                 </div>
                 
-                <p className="text-muted-foreground text-sm mb-4 line-clamp-2">{project.idea}</p>
+                <p className="text-muted-foreground text-sm mb-4 line-clamp-2 leading-relaxed">{project.idea}</p>
                 
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     {project.has_outputs && (
-                      <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400 border-0 rounded-lg">
+                      <Badge className="badge-success rounded-lg text-xs">
                         <CheckCircle className="w-3 h-3 ml-1" />
                         جاهز
                       </Badge>
                     )}
-                    <span className="text-muted-foreground">
+                    <span className="text-muted-foreground text-xs">
                       {new Date(project.updated_at).toLocaleDateString('ar-SA')}
                     </span>
                   </div>
@@ -394,7 +397,7 @@ const DashboardPage = () => {
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      className="text-primary hover:bg-primary/10 rounded-lg"
+                      className="text-primary hover:bg-primary/10 rounded-lg transition-smooth"
                       data-testid={`open-project-${project.id}`}
                     >
                       فتح
@@ -412,8 +415,8 @@ const DashboardPage = () => {
       <Dialog open={showNewProject} onOpenChange={setShowNewProject}>
         <DialogContent className="sm:max-w-lg rounded-2xl" dir="rtl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">مشروع جديد</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-title">مشروع جديد</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               أدخل معلومات فكرتك لبدء رحلة التحويل
             </DialogDescription>
           </DialogHeader>
@@ -425,7 +428,7 @@ const DashboardPage = () => {
                 value={newProjectTitle}
                 onChange={(e) => setNewProjectTitle(e.target.value)}
                 placeholder="مثال: تطبيق توصيل طلبات"
-                className="rounded-xl"
+                className="rounded-xl input-enhanced"
                 data-testid="new-project-title-input"
               />
             </div>
@@ -436,7 +439,7 @@ const DashboardPage = () => {
                 value={newProjectIdea}
                 onChange={(e) => setNewProjectIdea(e.target.value)}
                 placeholder="اكتب فكرتك هنا... لا تقلق إذا كانت غير واضحة، المساعد الذكي سيساعدك"
-                className="w-full h-32 p-3 border border-border bg-card rounded-xl focus:ring-1 focus:ring-primary focus:border-primary resize-none"
+                className="w-full h-32 p-3 border border-border bg-card rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none transition-smooth"
                 data-testid="new-project-idea-input"
               />
             </div>
@@ -452,7 +455,7 @@ const DashboardPage = () => {
             <Button
               onClick={handleCreateProject}
               disabled={creatingProject}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl"
+              className="btn-primary rounded-xl"
               data-testid="create-project-submit-btn"
             >
               {creatingProject ? (
@@ -470,8 +473,8 @@ const DashboardPage = () => {
       <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
         <DialogContent className="sm:max-w-lg rounded-2xl" dir="rtl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">إعدادات API</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-title">إعدادات API</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               أدخل مفتاح OpenRouter API الخاص بك للوصول إلى نماذج الذكاء الاصطناعي
             </DialogDescription>
           </DialogHeader>
@@ -482,7 +485,7 @@ const DashboardPage = () => {
                   <div key={p.provider} className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${PROVIDER_INFO[p.provider]?.color || 'bg-gray-400'}`} />
+                        <div className={`w-2.5 h-2.5 rounded-full ${PROVIDER_INFO[p.provider]?.color || 'bg-gray-400'}`} />
                         <div>
                           <p className="text-green-600 dark:text-green-400 font-medium text-sm">{p.provider_name} متصل</p>
                           <p className="text-green-600/70 dark:text-green-400/70 text-xs">{p.default_model}</p>
@@ -492,7 +495,7 @@ const DashboardPage = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteProviderKey(p.provider)}
-                        className="text-destructive h-7 w-7 p-0 rounded-lg"
+                        className="text-destructive h-7 w-7 p-0 rounded-lg hover:bg-destructive/10"
                         data-testid={`delete-${p.provider}-key-btn`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -532,10 +535,10 @@ const DashboardPage = () => {
                   <button
                     key={id}
                     onClick={() => setSelectedProvider(id)}
-                    className={`p-3 rounded-xl border-2 text-right transition-all ${
+                    className={`p-3 rounded-xl border-2 text-right transition-smooth ${
                       selectedProvider === id 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:border-muted-foreground/30'
+                        ? 'border-primary bg-primary/5 shadow-soft' 
+                        : 'border-border hover:border-muted-foreground/30 hover:bg-muted/50'
                     }`}
                     data-testid={`provider-${id}-btn`}
                   >
@@ -543,7 +546,7 @@ const DashboardPage = () => {
                       <div className={`w-2.5 h-2.5 rounded-full ${info.color}`} />
                       <span className="font-medium text-sm text-foreground">{info.name}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{info.desc}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{info.desc}</p>
                   </button>
                 ))}
               </div>
@@ -557,7 +560,7 @@ const DashboardPage = () => {
                 value={newApiKey}
                 onChange={(e) => setNewApiKey(e.target.value)}
                 placeholder={`${PROVIDER_INFO[selectedProvider]?.prefix || ''}...`}
-                className="rounded-xl font-mono"
+                className="rounded-xl font-mono input-enhanced"
                 data-testid="api-key-input"
               />
               <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -566,7 +569,7 @@ const DashboardPage = () => {
                   href={PROVIDER_INFO[selectedProvider]?.url || '#'} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline inline-flex items-center gap-1"
+                  className="text-primary hover:underline underline-offset-2 inline-flex items-center gap-1"
                 >
                   {PROVIDER_INFO[selectedProvider]?.name}
                   <ExternalLink className="w-3 h-3" />
@@ -580,14 +583,14 @@ const DashboardPage = () => {
                 <SelectTrigger className="rounded-xl" data-testid="model-select">
                   <SelectValue placeholder="اختر النموذج" />
                 </SelectTrigger>
-                <SelectContent className="max-h-80">
+                <SelectContent className="max-h-80 rounded-xl">
                   <ScrollArea className="h-72">
                     {models.map((model) => (
                       <SelectItem key={model.id} value={model.id} className="rounded-lg">
                         <div className="flex items-center gap-2">
                           <span>{model.name}</span>
                           {model.is_free && (
-                            <Badge variant="secondary" className="bg-green-500/10 text-green-600 text-xs border-0">
+                            <Badge className="badge-success text-xs">
                               مجاني
                             </Badge>
                           )}
@@ -619,7 +622,7 @@ const DashboardPage = () => {
             <Button
               onClick={handleSaveApiKey}
               disabled={savingApiKey || !newApiKey.trim()}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl"
+              className="btn-primary rounded-xl"
               data-testid="save-api-key-btn"
             >
               {savingApiKey ? (

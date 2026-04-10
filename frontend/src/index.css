@@ -1,69 +1,123 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Kufi+Arabic:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ========================================
+   IMPECCABLE DESIGN SYSTEM
+   Based on Impeccable Design Principles
+   ======================================== */
+
+/* Typography Setup */
 * {
-  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  font-family: 'IBM Plex Sans Arabic', 'Noto Kufi Arabic', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 code, pre, .font-mono {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: 'IBM Plex Mono', 'SF Mono', 'Monaco', monospace;
 }
 
 body {
   margin: 0;
   direction: rtl;
   text-align: right;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  letter-spacing: -0.011em;
 }
 
+/* ========================================
+   COLOR SYSTEM - OKLCH Based
+   Avoiding pure black (#000), using rich dark blues instead
+   ======================================== */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    /* Light Mode - Warm Neutrals */
+    --background: 60 9% 98%;
+    --foreground: 234 25% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 234 25% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
+    --popover-foreground: 234 25% 14%;
+    
+    /* Primary - Rich Blue with depth */
+    --primary: 217 91% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
+    
+    /* Secondary - Subtle warm gray */
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 234 25% 20%;
+    
+    /* Muted - Sophisticated gray */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    
+    /* Accent - Vibrant but balanced */
+    --accent: 220 14% 94%;
+    --accent-foreground: 234 25% 20%;
+    
+    /* Semantic Colors */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Borders - Subtle but visible */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 50%;
+    
+    /* Radius - Consistent roundness */
     --radius: 0.75rem;
+    
+    /* Shadows */
+    --shadow-color: 220 30% 5%;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 13%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 13%;
-    --popover-foreground: 210 40% 98%;
+    /* Dark Mode - Rich dark blue, NOT pure black */
+    --background: 230 23% 9%;
+    --foreground: 220 20% 95%;
+    --card: 230 23% 11%;
+    --card-foreground: 220 20% 95%;
+    --popover: 230 23% 11%;
+    --popover-foreground: 220 20% 95%;
+    
+    /* Primary - Brighter in dark mode */
     --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
+    --primary-foreground: 230 23% 9%;
+    
+    /* Secondary */
+    --secondary: 230 20% 16%;
+    --secondary-foreground: 220 20% 90%;
+    
+    /* Muted */
+    --muted: 230 20% 16%;
+    --muted-foreground: 220 13% 60%;
+    
+    /* Accent */
+    --accent: 230 20% 18%;
+    --accent-foreground: 220 20% 90%;
+    
+    /* Semantic */
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    
+    /* Borders */
+    --border: 230 20% 18%;
+    --input: 230 20% 18%;
     --ring: 217 91% 60%;
+    
+    --shadow-color: 230 50% 2%;
   }
 }
 
@@ -76,109 +130,465 @@ body {
   }
 }
 
-/* Custom scrollbar */
+/* ========================================
+   TYPOGRAPHY SCALE
+   Consistent, readable hierarchy
+   ======================================== */
+@layer utilities {
+  .text-display {
+    @apply text-5xl sm:text-6xl font-bold tracking-tight leading-[1.1];
+  }
+  
+  .text-headline {
+    @apply text-3xl sm:text-4xl font-bold tracking-tight leading-[1.2];
+  }
+  
+  .text-title {
+    @apply text-xl sm:text-2xl font-semibold leading-[1.3];
+  }
+  
+  .text-body-large {
+    @apply text-lg leading-relaxed;
+  }
+  
+  .text-body {
+    @apply text-base leading-relaxed;
+  }
+  
+  .text-body-small {
+    @apply text-sm leading-relaxed;
+  }
+  
+  .text-caption {
+    @apply text-xs leading-normal text-muted-foreground;
+  }
+}
+
+/* ========================================
+   CUSTOM SCROLLBAR - Minimal & Clean
+   ======================================== */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-muted;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/30 rounded-full;
+  @apply bg-muted-foreground/20 rounded-full;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
+  @apply bg-muted-foreground/40;
 }
 
-/* Chat bubbles */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+}
+
+/* ========================================
+   CHAT BUBBLES - Refined Design
+   ======================================== */
 .chat-bubble-user {
-  @apply bg-primary text-primary-foreground rounded-2xl rounded-br-sm;
+  @apply bg-primary text-primary-foreground;
+  border-radius: 1.25rem 1.25rem 0.375rem 1.25rem;
+  box-shadow: 0 2px 8px -2px hsl(var(--shadow-color) / 0.15);
 }
 
 .chat-bubble-assistant {
-  @apply bg-muted text-foreground rounded-2xl rounded-bl-sm border border-border;
+  @apply bg-card text-foreground border border-border;
+  border-radius: 1.25rem 1.25rem 1.25rem 0.375rem;
+  box-shadow: 0 2px 8px -2px hsl(var(--shadow-color) / 0.08);
 }
 
 .dark .chat-bubble-assistant {
-  @apply bg-card;
+  @apply bg-card/80 backdrop-blur-sm;
 }
 
-/* Loading animation */
-@keyframes pulse-dot {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+/* ========================================
+   ANIMATIONS - Natural & Purposeful
+   Using ease-out for entrances, ease-in for exits
+   ======================================== */
+
+/* Loading Animation - Smooth wave */
+@keyframes pulse-wave {
+  0%, 100% { 
+    opacity: 0.4; 
+    transform: scale(0.95);
+  }
+  50% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
 }
 
 .loading-dot {
-  animation: pulse-dot 1.4s infinite ease-in-out;
+  animation: pulse-wave 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 .loading-dot:nth-child(1) { animation-delay: 0s; }
-.loading-dot:nth-child(2) { animation-delay: 0.2s; }
-.loading-dot:nth-child(3) { animation-delay: 0.4s; }
+.loading-dot:nth-child(2) { animation-delay: 0.15s; }
+.loading-dot:nth-child(3) { animation-delay: 0.3s; }
 
-/* Markdown styles */
+/* Fade in animation */
+@keyframes fade-in {
+  from { 
+    opacity: 0; 
+    transform: translateY(8px);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Slide in from right (for RTL) */
+@keyframes slide-in-right {
+  from { 
+    opacity: 0; 
+    transform: translateX(-16px);
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scale in */
+@keyframes scale-in {
+  from { 
+    opacity: 0; 
+    transform: scale(0.95);
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted-foreground) / 0.1) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Float animation for decorative elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* ========================================
+   MARKDOWN CONTENT - Beautiful Typography
+   ======================================== */
 .markdown-content h1 {
-  @apply text-2xl font-bold mb-4 text-foreground;
+  @apply text-2xl font-bold mb-6 mt-8 text-foreground first:mt-0;
+  letter-spacing: -0.02em;
 }
 
 .markdown-content h2 {
-  @apply text-xl font-semibold mb-3 text-foreground;
+  @apply text-xl font-semibold mb-4 mt-6 text-foreground;
+  letter-spacing: -0.015em;
 }
 
 .markdown-content h3 {
-  @apply text-lg font-medium mb-2 text-foreground;
+  @apply text-lg font-medium mb-3 mt-5 text-foreground;
 }
 
 .markdown-content p {
-  @apply mb-3 leading-relaxed text-muted-foreground;
+  @apply mb-4 leading-relaxed text-muted-foreground;
 }
 
 .markdown-content ul, .markdown-content ol {
-  @apply mb-3 pr-6;
+  @apply mb-4 pr-6;
 }
 
 .markdown-content li {
-  @apply mb-1 text-muted-foreground;
+  @apply mb-2 text-muted-foreground leading-relaxed;
+}
+
+.markdown-content li::marker {
+  @apply text-primary;
 }
 
 .markdown-content code {
-  @apply bg-muted px-1.5 py-0.5 text-sm font-mono rounded;
+  @apply bg-muted/80 px-1.5 py-0.5 text-sm font-mono rounded-md text-foreground;
+  font-size: 0.875em;
 }
 
 .markdown-content pre {
-  @apply bg-card text-foreground p-4 mb-4 overflow-x-auto rounded-lg border border-border;
+  @apply bg-card text-foreground p-4 mb-4 overflow-x-auto rounded-xl border border-border;
+  font-size: 0.875rem;
+  line-height: 1.7;
 }
 
 .markdown-content pre code {
-  @apply bg-transparent;
+  @apply bg-transparent p-0;
 }
 
-/* Transitions */
+.markdown-content blockquote {
+  @apply border-r-4 border-primary/50 pr-4 my-4 italic text-muted-foreground;
+}
+
+.markdown-content a {
+  @apply text-primary underline-offset-4 hover:underline;
+}
+
+.markdown-content hr {
+  @apply my-8 border-border;
+}
+
+/* ========================================
+   TRANSITIONS - Consistent & Smooth
+   ======================================== */
+.transition-base {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .transition-smooth {
-  transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Glass effect */
+.transition-colors-smooth {
+  transition: color 0.15s ease-out,
+              background-color 0.15s ease-out,
+              border-color 0.15s ease-out;
+}
+
+/* ========================================
+   GLASS EFFECT - Modern Blur
+   ======================================== */
 .glass {
-  @apply bg-background/80 backdrop-blur-xl;
+  @apply bg-background/85 backdrop-blur-xl;
+  backdrop-saturate: 1.5;
 }
 
 .dark .glass {
   @apply bg-background/90;
 }
 
-/* Gradient text */
-.gradient-text {
-  @apply bg-gradient-to-r from-primary to-blue-400 bg-clip-text text-transparent;
+.glass-card {
+  @apply bg-card/60 backdrop-blur-lg border border-white/10;
 }
 
+.dark .glass-card {
+  @apply bg-card/40 border-white/5;
+}
+
+/* ========================================
+   GRADIENT TEXT - Vibrant & Clean
+   ======================================== */
+.gradient-text {
+  @apply bg-gradient-to-l from-primary via-blue-500 to-primary bg-clip-text text-transparent;
+  background-size: 200% auto;
+}
+
+.gradient-text-animated {
+  @apply gradient-text;
+  animation: gradient-shift 3s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+}
+
+/* ========================================
+   INTERACTIVE STATES - Clear Feedback
+   ======================================== */
+.interactive-card {
+  @apply transition-smooth cursor-pointer;
+}
+
+.interactive-card:hover {
+  @apply border-primary/40 shadow-lg;
+  transform: translateY(-2px);
+}
+
+.interactive-card:active {
+  transform: translateY(0);
+}
+
+/* Focus Visible - Accessible & Beautiful */
+.focus-ring {
+  @apply outline-none;
+}
+
+.focus-ring:focus-visible {
+  @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+}
+
+/* ========================================
+   BUTTON ENHANCEMENTS
+   ======================================== */
+.btn-primary {
+  @apply bg-primary text-primary-foreground transition-smooth;
+  box-shadow: 0 2px 8px -2px hsl(var(--primary) / 0.4);
+}
+
+.btn-primary:hover {
+  @apply bg-primary/90;
+  box-shadow: 0 4px 16px -4px hsl(var(--primary) / 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  @apply bg-secondary text-secondary-foreground transition-smooth;
+}
+
+.btn-secondary:hover {
+  @apply bg-secondary/80;
+}
+
+.btn-ghost {
+  @apply transition-colors-smooth;
+}
+
+.btn-ghost:hover {
+  @apply bg-muted;
+}
+
+/* ========================================
+   INPUT ENHANCEMENTS
+   ======================================== */
+.input-enhanced {
+  @apply transition-smooth border-border bg-background;
+}
+
+.input-enhanced:hover {
+  @apply border-muted-foreground/30;
+}
+
+.input-enhanced:focus {
+  @apply border-primary ring-4 ring-primary/10;
+}
+
+/* ========================================
+   CARD ENHANCEMENTS
+   ======================================== */
+.card-elevated {
+  @apply bg-card border border-border rounded-2xl;
+  box-shadow: 0 1px 3px hsl(var(--shadow-color) / 0.05),
+              0 4px 12px hsl(var(--shadow-color) / 0.05);
+}
+
+.dark .card-elevated {
+  box-shadow: 0 1px 3px hsl(var(--shadow-color) / 0.2),
+              0 4px 12px hsl(var(--shadow-color) / 0.15);
+}
+
+.card-elevated:hover {
+  box-shadow: 0 2px 6px hsl(var(--shadow-color) / 0.08),
+              0 8px 24px hsl(var(--shadow-color) / 0.1);
+}
+
+/* ========================================
+   BADGE ENHANCEMENTS
+   ======================================== */
+.badge-success {
+  @apply bg-green-500/15 text-green-600 dark:text-green-400 border-0;
+}
+
+.badge-warning {
+  @apply bg-amber-500/15 text-amber-600 dark:text-amber-400 border-0;
+}
+
+.badge-info {
+  @apply bg-blue-500/15 text-blue-600 dark:text-blue-400 border-0;
+}
+
+.badge-primary {
+  @apply bg-primary/15 text-primary border-0;
+}
+
+/* ========================================
+   PROGRESS BAR ENHANCEMENT
+   ======================================== */
+.progress-animated {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+.text-balance {
+  text-wrap: balance;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Debug wrapper fix */
 @layer base {
   [data-debug-wrapper="true"] {
     display: contents !important;
+  }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN HELPERS
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .glass {
+    background: white !important;
+    backdrop-filter: none !important;
   }
 }

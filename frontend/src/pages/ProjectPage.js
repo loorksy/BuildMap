@@ -386,10 +386,10 @@ const ProjectPage = () => {
       <Toaster position="top-center" richColors />
       
       {/* Header */}
-      <header className="glass border-b border-border sticky top-0 z-50">
+      <header className="glass border-b border-border/50 sticky top-0 z-50">
         <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors p-2 hover:bg-muted rounded-lg">
+            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors-smooth p-2 hover:bg-muted rounded-lg">
               <ArrowRight className="w-5 h-5" />
             </Link>
             <div>
@@ -398,7 +398,7 @@ const ProjectPage = () => {
           </div>
           
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-xl">
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-xl transition-smooth">
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
             
@@ -406,14 +406,14 @@ const ProjectPage = () => {
               <SelectTrigger className="w-40 rounded-xl text-sm" data-testid="project-model-select">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="max-h-80">
+              <SelectContent className="max-h-80 rounded-xl">
                 <ScrollArea className="h-72">
                   {models.map((model) => (
                     <SelectItem key={model.id} value={model.id} className="text-sm rounded-lg">
                       <div className="flex items-center gap-2">
                         <span>{model.name}</span>
                         {model.is_free && (
-                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 text-xs border-0">مجاني</Badge>
+                          <Badge className="badge-success text-xs">مجاني</Badge>
                         )}
                       </div>
                     </SelectItem>
@@ -427,25 +427,25 @@ const ProjectPage = () => {
 
       {/* Progress Bar */}
       {analysis && (
-        <div className="bg-card border-b border-border px-4 py-3">
+        <div className="bg-card/50 border-b border-border/50 px-4 py-3 backdrop-blur-sm">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-foreground">تقدم المحادثة</span>
               <span className="text-sm text-primary font-bold">{Math.round(analysis.total_progress)}%</span>
             </div>
             <Progress value={analysis.total_progress} className="h-2 mb-3" />
-            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
+            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 no-scrollbar">
               {analysis.stages?.slice(0, -1).map((stage, idx) => {
                 const isCompleted = analysis.completed_stages?.includes(stage.id);
                 const isCurrent = analysis.current_stage === stage.id;
                 return (
                   <div 
                     key={stage.id}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-smooth ${
                       isCompleted 
-                        ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
+                        ? 'bg-green-500/15 text-green-600 dark:text-green-400' 
                         : isCurrent 
-                          ? 'bg-primary/20 text-primary ring-2 ring-primary/30' 
+                          ? 'bg-primary/15 text-primary ring-2 ring-primary/30' 
                           : 'bg-muted text-muted-foreground'
                     }`}
                   >
@@ -467,10 +467,11 @@ const ProjectPage = () => {
           {/* Messages */}
           <ScrollArea className="flex-1 p-4">
             <div className="max-w-3xl mx-auto space-y-4">
-              {messages.map((message) => (
+              {messages.map((message, index) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'}`}
+                  className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'} animate-fade-in`}
+                  style={{ animationDelay: `${index * 0.02}s` }}
                 >
                   <div
                     className={`max-w-[85%] p-4 ${
@@ -480,7 +481,7 @@ const ProjectPage = () => {
                   >
                     <p className="whitespace-pre-wrap leading-relaxed">
                       {message.content}
-                      {message.isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse mr-1 align-middle rounded-sm" />}
+                      {message.isStreaming && <span className="inline-block w-2 h-5 bg-primary animate-pulse mr-1 align-middle rounded-sm" />}
                     </p>
                     {!message.isStreaming && (
                       <span className={`text-xs mt-2 block ${message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
@@ -492,9 +493,9 @@ const ProjectPage = () => {
               ))}
               
               {sending && !messages.some(m => m.isStreaming) && (
-                <div className="flex justify-end">
+                <div className="flex justify-end animate-fade-in">
                   <div className="chat-bubble-assistant p-4">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <span className="loading-dot w-2 h-2 bg-primary rounded-full"></span>
                       <span className="loading-dot w-2 h-2 bg-primary rounded-full"></span>
                       <span className="loading-dot w-2 h-2 bg-primary rounded-full"></span>
@@ -509,9 +510,9 @@ const ProjectPage = () => {
 
           {/* Quick Suggestions */}
           {analysis?.suggestions && !sending && (
-            <div className="px-4 py-3 border-t border-border bg-muted/30">
+            <div className="px-4 py-3 border-t border-border/50 bg-muted/30 backdrop-blur-sm">
               <div className="max-w-3xl mx-auto">
-                <p className="text-xs text-muted-foreground mb-2">اقتراحات سريعة:</p>
+                <p className="text-xs text-muted-foreground mb-2 font-medium">اقتراحات سريعة:</p>
                 <div className="flex flex-wrap gap-2">
                   {analysis.suggestions.map((suggestion, idx) => {
                     const IconComponent = iconMap[suggestion.icon] || Sparkles;
@@ -521,7 +522,7 @@ const ProjectPage = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handleSuggestionClick(suggestion)}
-                        className="rounded-full text-xs h-8 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                        className="rounded-full text-xs h-8 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
                         data-testid={`suggestion-${idx}`}
                       >
                         <IconComponent className="w-3 h-3 ml-1" />
@@ -536,17 +537,19 @@ const ProjectPage = () => {
 
           {/* Generate Button */}
           {(analysis?.ready_to_generate || analysis?.total_progress >= 60 || outputs) && !generating && (
-            <div className="p-4 border-t border-border bg-gradient-to-r from-primary/10 to-blue-500/10">
+            <div className="p-4 border-t border-border/50 bg-gradient-to-r from-primary/10 via-primary/5 to-blue-500/10">
               <div className="max-w-3xl mx-auto flex items-center justify-between">
-                <div className="flex items-center gap-2 text-primary">
-                  <Sparkles className="w-5 h-5" />
-                  <span className="font-medium">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="font-medium text-foreground">
                     {outputs ? 'المخرجات جاهزة - يمكنك إعادة التوليد' : 'جاهز لتوليد ملفات المشروع!'}
                   </span>
                 </div>
                 <Button
                   onClick={handleGenerateOutputs}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-lg shadow-primary/25"
+                  className="btn-primary rounded-xl shadow-glow hover:shadow-glow-lg"
                   data-testid="generate-outputs-btn"
                 >
                   <Sparkles className="w-4 h-4 ml-2" />
@@ -558,31 +561,31 @@ const ProjectPage = () => {
 
           {/* Generating */}
           {generating && (
-            <div className="p-4 border-t border-border bg-primary">
+            <div className="p-4 border-t border-border/50 bg-primary">
               <div className="max-w-3xl mx-auto flex items-center justify-center gap-3 text-primary-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>جاري توليد 6 ملفات... قد يستغرق دقيقة</span>
+                <span className="font-medium">جاري توليد 6 ملفات... قد يستغرق دقيقة</span>
               </div>
             </div>
           )}
 
           {/* Input */}
-          <div className="p-4 border-t border-border bg-background">
+          <div className="p-4 border-t border-border/50 bg-background">
             <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <Input
                   ref={inputRef}
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   placeholder="اكتب رسالتك أو اختر من الاقتراحات..."
-                  className="flex-1 h-12 rounded-xl border-border focus:ring-primary focus:border-primary"
+                  className="flex-1 h-12 rounded-xl border-border input-enhanced"
                   disabled={sending || generating}
                   data-testid="chat-input"
                 />
                 <Button
                   type="submit"
                   disabled={!messageInput.trim() || sending || generating}
-                  className="h-12 px-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl"
+                  className="h-12 px-6 btn-primary rounded-xl"
                   data-testid="send-message-btn"
                 >
                   <Send className="w-5 h-5" />
@@ -593,9 +596,9 @@ const ProjectPage = () => {
         </div>
 
         {/* Side Panel - Project Summary & Files Preview */}
-        <div className="w-80 border-r border-border bg-card hidden lg:flex flex-col">
+        <div className="w-80 border-r border-border/50 bg-card/50 backdrop-blur-sm hidden lg:flex flex-col">
           {/* Project Summary */}
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border/50">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-foreground flex items-center gap-2">
                 <Eye className="w-4 h-4" />
@@ -605,16 +608,16 @@ const ProjectPage = () => {
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setShowPreview(!showPreview)}
-                className="h-6 w-6 p-0"
+                className="h-6 w-6 p-0 rounded-lg"
               >
                 {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </Button>
             </div>
             
             {showPreview && analysis?.project_summary && (
-              <div className="space-y-3">
+              <div className="space-y-3 animate-fade-in">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
+                  <Badge className="badge-primary">
                     {analysis.project_summary.type}
                   </Badge>
                   {analysis.complexity?.level_ar && (
@@ -625,8 +628,8 @@ const ProjectPage = () => {
                 </div>
                 
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">الفكرة:</p>
-                  <p className="text-sm text-foreground">{analysis.project_summary.idea_summary}</p>
+                  <p className="text-xs text-muted-foreground mb-1 font-medium">الفكرة:</p>
+                  <p className="text-sm text-foreground leading-relaxed">{analysis.project_summary.idea_summary}</p>
                 </div>
                 
                 {analysis.complexity?.estimated_time && (
@@ -637,7 +640,7 @@ const ProjectPage = () => {
                 )}
                 
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">الميزات المكتشفة:</p>
+                  <p className="text-xs text-muted-foreground mb-1 font-medium">الميزات المكتشفة:</p>
                   <div className="flex flex-wrap gap-1">
                     {analysis.project_summary.features?.slice(0, 4).map((f, i) => (
                       <Badge key={i} variant="outline" className="text-xs">
@@ -649,10 +652,10 @@ const ProjectPage = () => {
                 
                 {analysis.project_summary.technologies?.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">التقنيات:</p>
+                    <p className="text-xs text-muted-foreground mb-1 font-medium">التقنيات:</p>
                     <div className="flex flex-wrap gap-1">
                       {analysis.project_summary.technologies.map((t, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-0">
+                        <Badge key={i} className="badge-info text-xs">
                           {t}
                         </Badge>
                       ))}
@@ -663,13 +666,13 @@ const ProjectPage = () => {
                 {/* Skills */}
                 {analysis.suggested_skills?.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 font-medium">
                       <BookOpen className="w-3 h-3" />
                       المهارات المقترحة:
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {analysis.suggested_skills.map((s, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+                        <Badge key={i} className="badge-warning text-xs">
                           {s.name_ar}
                         </Badge>
                       ))}
@@ -680,7 +683,7 @@ const ProjectPage = () => {
                 {/* Verification */}
                 {analysis.verification?.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 font-medium">
                       <Shield className="w-3 h-3" />
                       التحقق:
                     </p>
@@ -707,7 +710,7 @@ const ProjectPage = () => {
           {/* Files Preview */}
           {outputs && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-border flex items-center justify-between">
+              <div className="p-4 border-b border-border/50 flex items-center justify-between">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
                   <FileText className="w-4 h-4" />
                   معاينة الملفات
@@ -717,7 +720,7 @@ const ProjectPage = () => {
                   size="sm"
                   onClick={handleExportZip}
                   disabled={exporting}
-                  className="h-7 text-xs rounded-lg gap-1"
+                  className="h-7 text-xs rounded-lg gap-1 transition-smooth"
                   data-testid="export-zip-btn"
                 >
                   {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderArchive className="w-3 h-3" />}
@@ -725,7 +728,7 @@ const ProjectPage = () => {
                 </Button>
               </div>
               
-              <div className="p-2 border-b border-border">
+              <div className="p-2 border-b border-border/50">
                 <div className="grid grid-cols-3 gap-1">
                   {outputTabs.map((tab) => (
                     <Button
@@ -733,7 +736,7 @@ const ProjectPage = () => {
                       variant={previewFile === tab.id ? "default" : "ghost"}
                       size="sm"
                       onClick={() => setPreviewFile(previewFile === tab.id ? null : tab.id)}
-                      className={`text-xs h-8 rounded-lg ${previewFile === tab.id ? 'bg-primary text-primary-foreground' : ''}`}
+                      className={`text-xs h-8 rounded-lg transition-smooth ${previewFile === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
                     >
                       <tab.icon className="w-3 h-3 ml-1" />
                       {tab.label}
@@ -749,7 +752,7 @@ const ProjectPage = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleCopy(outputTabs.find(t => t.id === previewFile)?.content, previewFile)}
-                      className="h-7 text-xs"
+                      className="h-7 text-xs rounded-lg"
                     >
                       {copiedTab === previewFile ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                     </Button>
@@ -760,7 +763,7 @@ const ProjectPage = () => {
                         const tab = outputTabs.find(t => t.id === previewFile);
                         handleDownload(tab?.content, tab?.filename);
                       }}
-                      className="h-7 text-xs"
+                      className="h-7 text-xs rounded-lg"
                     >
                       <Download className="w-3 h-3" />
                     </Button>
@@ -787,7 +790,9 @@ const ProjectPage = () => {
           {!outputs && (
             <div className="flex-1 flex items-center justify-center p-4">
               <div className="text-center">
-                <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <FileText className="w-8 h-8 text-muted-foreground/50" />
+                </div>
                 <p className="text-sm text-muted-foreground">
                   ستظهر الملفات هنا بعد التوليد
                 </p>

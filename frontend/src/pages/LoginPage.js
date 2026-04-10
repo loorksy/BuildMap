@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Eye, EyeOff, ArrowRight, Sun, Moon, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Sun, Moon, AlertCircle, Sparkles } from 'lucide-react';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -36,17 +36,17 @@ const LoginPage = () => {
     <div className="min-h-screen bg-background flex" dir="rtl">
       {/* Left Panel - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md animate-fade-in">
           <div className="flex items-center justify-between mb-8">
-            <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-              <ArrowRight className="w-4 h-4" />
+            <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors-smooth group">
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               <span>العودة للرئيسية</span>
             </Link>
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="rounded-xl"
+              className="rounded-xl transition-smooth"
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
@@ -54,20 +54,20 @@ const LoginPage = () => {
 
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center shadow-glow">
                 <span className="text-primary-foreground font-black text-xl">B</span>
               </div>
               <span className="text-2xl font-bold text-foreground">BuildMap</span>
             </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">تسجيل الدخول</h1>
-            <p className="text-muted-foreground">أدخل بياناتك للوصول إلى حسابك</p>
+            <h1 className="text-headline text-foreground mb-2">تسجيل الدخول</h1>
+            <p className="text-body text-muted-foreground">أدخل بياناتك للوصول إلى حسابك</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl flex items-center gap-3" data-testid="login-error">
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl flex items-center gap-3 animate-scale-in" data-testid="login-error">
                 <AlertCircle className="w-5 h-5 shrink-0" />
-                <span>{error}</span>
+                <span className="text-sm">{error}</span>
               </div>
             )}
 
@@ -79,7 +79,7 @@ const LoginPage = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
-                className="h-12 bg-card border-border rounded-xl focus:ring-primary focus:border-primary"
+                className="h-12 bg-card border-border rounded-xl input-enhanced"
                 required
                 data-testid="login-email-input"
               />
@@ -94,14 +94,14 @@ const LoginPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="ادخل كلمة المرور"
-                  className="h-12 bg-card border-border rounded-xl focus:ring-primary focus:border-primary pl-12"
+                  className="h-12 bg-card border-border rounded-xl pl-12 input-enhanced"
                   required
                   data-testid="login-password-input"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors-smooth p-1 rounded-md hover:bg-muted"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -111,16 +111,21 @@ const LoginPage = () => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl"
+              className="w-full h-12 btn-primary font-semibold rounded-xl"
               data-testid="login-submit-btn"
             >
-              {loading ? 'جاري التحميل...' : 'تسجيل الدخول'}
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  جاري التحميل...
+                </span>
+              ) : 'تسجيل الدخول'}
             </Button>
           </form>
 
           <p className="text-center text-muted-foreground mt-6">
             ليس لديك حساب؟{' '}
-            <Link to="/register" className="text-primary font-medium hover:underline" data-testid="register-link">
+            <Link to="/register" className="text-primary font-medium hover:underline underline-offset-4" data-testid="register-link">
               إنشاء حساب جديد
             </Link>
           </p>
@@ -128,21 +133,31 @@ const LoginPage = () => {
       </div>
 
       {/* Right Panel - Image */}
-      <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-primary to-blue-600 relative overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center p-12">
-          <div className="text-center text-white max-w-md">
-            <h2 className="text-4xl font-bold mb-6">حوّل الفوضى إلى نظام</h2>
-            <p className="text-white/80 text-lg">
-              ابدأ رحلتك في تحويل أفكارك العشوائية إلى مشاريع تقنية منظمة ومدروسة.
-            </p>
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary to-blue-600 relative overflow-hidden items-center justify-center">
+        {/* Decorative elements */}
+        <div className="absolute top-20 right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-20 left-20 w-48 h-48 bg-blue-400/20 rounded-full blur-2xl animate-float" style={{ animationDelay: '1s' }} />
+        
+        <div className="relative z-10 text-center text-white max-w-md p-12 animate-fade-in">
+          <div className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-8 backdrop-blur-sm animate-bounce-soft">
+            <Sparkles className="w-10 h-10 text-white" />
           </div>
+          <h2 className="text-4xl font-bold mb-6 text-balance">حوّل الفوضى إلى نظام</h2>
+          <p className="text-white/80 text-lg leading-relaxed text-balance">
+            ابدأ رحلتك في تحويل أفكارك العشوائية إلى مشاريع تقنية منظمة ومدروسة.
+          </p>
         </div>
-        <div className="absolute inset-0 opacity-10">
-          <img 
-            src="https://static.prod-images.emergentagent.com/jobs/b878669f-29c7-48e6-a252-07344449ce6e/images/0ea3a9de1ee5fd3aec53f20d2c592822cc4327538d63aa350dd5bc03ddf9833e.png"
-            alt=""
-            className="w-full h-full object-cover"
-          />
+        
+        {/* Background pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              <pattern id="grid-login" width="8" height="8" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="1" fill="currentColor" className="text-white"/>
+              </pattern>
+            </defs>
+            <rect width="100" height="100" fill="url(#grid-login)"/>
+          </svg>
         </div>
       </div>
     </div>
