@@ -1,0 +1,120 @@
+{
+  "theme": "light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "design_philosophy": "Color is function only. 95% of the UI should be monochrome, focusing on radical weight contrast and precise structural alignment. The UI must feel like an authoritative, high-end technical blueprint translating chaos into order. Full Arabic (RTL) support is central to the layout.",
+  "colors": {
+    "background": {
+      "default": "#FAFAFA",
+      "paper": "#FFFFFF",
+      "subtle": "#F5F5F5"
+    },
+    "text": {
+      "primary": "#1A1A1A",
+      "secondary": "#666666",
+      "muted": "#999999",
+      "inverse": "#FFFFFF"
+    },
+    "border": {
+      "default": "#E5E5E5",
+      "strong": "#CCCCCC"
+    },
+    "brand": {
+      "primary": "#002FA7",
+      "primary_hover": "#002480",
+      "primary_subtle": "#E6EAF6"
+    },
+    "status": {
+      "success": "#34C759",
+      "warning": "#FFCC00",
+      "error": "#FF3B30",
+      "info": "#007AFF"
+    }
+  },
+  "typography": {
+    "font_family": {
+      "heading": "'IBM Plex Sans Arabic', sans-serif",
+      "body": "'IBM Plex Sans Arabic', sans-serif",
+      "mono": "'IBM Plex Mono', monospace"
+    },
+    "rules": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter text-[#1A1A1A]",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#1A1A1A]",
+      "h3": "text-xl sm:text-2xl font-semibold tracking-tight text-[#1A1A1A]",
+      "h4": "text-lg sm:text-xl font-medium tracking-normal text-[#1A1A1A]",
+      "body": "text-base leading-relaxed text-[#666666]",
+      "small": "text-sm text-[#999999]",
+      "overline": "text-xs font-bold uppercase tracking-[0.2em] text-[#999999]"
+    },
+    "strategy": "The 'Swiss Brutalist' approach: Use one font family (IBM Plex Sans Arabic) but rely on radical weight contrast (Black vs Light) to establish hierarchy. Headings must have tight letter spacing, while body text requires loose leading for Arabic legibility."
+  },
+  "spacing_and_layout": {
+    "system": "Generous Spacing Philosophy (Tailwind Scale). Containers with borders must have internal padding (p-6 or p-8) to prevent text collision.",
+    "grid_strategy": {
+      "landing_page": "Mode A: The 'Tetris' Grid. Base: grid-cols-1 md:grid-cols-12 with gap-8. Create visual tension via asymmetry.",
+      "dashboard": "Mode B: The 'Control Room' Grid. Base: grid-cols-1 lg:grid-cols-4 with gap-6. Every pixel utilized, h-full on children.",
+      "rtl_alignment": "CRITICAL: The entire application MUST use dir='rtl'. Layouts should anchor to the right. Sidebars appear on the right. Text aligns right by default."
+    }
+  },
+  "surfaces": {
+    "cards": "Grid Borders (The 'Technical' Look). Expose the skeleton. Use border-collapse style layouts with 1px border-border on right and bottom of items. No soft shadows. Flat solid surfaces.",
+    "header": "Solid Background (bg-white) with a hard bottom border (border-b border-border). No glassmorphism here to maintain the stark, technical Swiss feel.",
+    "chat_bubbles": "User: Solid brand primary background (bg-[#002FA7] text-white). Assistant: Light subtle background (bg-[#F5F5F5] text-[#1A1A1A] border border-border). Square corners with maximum 4px radius (rounded-sm) for a structural look."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#002FA7] text-white hover:bg-[#002480] transition-colors rounded-none font-bold px-8 py-3",
+      "secondary": "bg-transparent text-[#1A1A1A] border border-[#1A1A1A] hover:bg-[#F5F5F5] transition-colors rounded-none font-bold px-8 py-3",
+      "ghost": "bg-transparent text-[#666666] hover:bg-[#F5F5F5] hover:text-[#1A1A1A] transition-colors rounded-none px-4 py-2"
+    },
+    "inputs": "Shadcn components heavily customized. Flat rectangular borders (rounded-none), focus:ring-1 focus:ring-[#002FA7] focus:border-[#002FA7] bg-white text-[#1A1A1A].",
+    "panels": "Output generation panels (README, Plan, Skills, etc.) must look like technical specification sheets. Use monospace fonts for code snippets and clear hierarchical dividers."
+  },
+  "motion": {
+    "rules": "Minimalist and functional. Use micro-interactions for feedback.",
+    "hover": "Explicitly set text color on hover. E.g., hover:bg-[#F5F5F5] hover:text-[#1A1A1A].",
+    "transitions": "Use specific properties: transition: transform 0.2s ease, opacity 0.2s ease.",
+    "chat": "Staggered entrance animations for chat messages using framer-motion."
+  },
+  "icons_and_assets": {
+    "library": "lucide-react (default, sharp and technical).",
+    "usage": "Use icons sparingly, primarily for functional indicators (settings, models, send message). Keep sizes consistent (w-5 h-5)."
+  },
+  "media_urls": {
+    "hero_image": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/b878669f-29c7-48e6-a252-07344449ce6e/images/113d56e53b5a78e8d35bcd15c548bcdb4ec9ecc61997cfc6ac208a9f0efd2d82.png",
+      "description": "Abstract 3D composition of chaotic floating threads organizing into a structured grid.",
+      "placement": "Landing Page Hero Section (Right side or full background with gradient overlay)."
+    },
+    "blueprint_texture": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/b878669f-29c7-48e6-a252-07344449ce6e/images/0ea3a9de1ee5fd3aec53f20d2c592822cc4327538d63aa350dd5bc03ddf9833e.png",
+      "description": "Minimalist architectural blueprint texture.",
+      "placement": "Dashboard Background (opacity-5) or Chat empty state."
+    },
+    "user_avatar_1": {
+      "url": "https://images.unsplash.com/photo-1765366574945-e2f1b4b1a5b3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwxfHxhcmFiJTIwcHJvZmVzc2lvbmFsJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc1ODMzNjgwfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Smiling Arab professional.",
+      "placement": "Testimonial or User Profile placeholder."
+    },
+    "user_avatar_2": {
+      "url": "https://images.pexels.com/photos/8939101/pexels-photo-8939101.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Arab man in traditional attire sitting in a modern office.",
+      "placement": "Landing page 'Trusted by' or persona section."
+    }
+  },
+  "page_specific_rules": {
+    "landing_page": "High visual impact. Use pure HTML/Tailwind for layouts to allow asymmetry. Large heading (H1) translating the 'Chaos to Order' concept. Use the hero_image with a subtle overlay if placing text above it.",
+    "auth_pages": "Minimalist forms centered on the screen. Stark white background, 1px grey border container, precise typography.",
+    "dashboard": "Right-sidebar layout (RTL). Include projects list. Top header for API Key settings and Model Selection dropdown. The central area is the Chat Interface. When generating outputs, switch to a split-screen or multi-tab view for the 6 output panels (README-Frontend, Backend, Plan, Skills, Evaluation, Mind Map).",
+    "mind_map": "Must utilize a visualization library like 'reactflow' or D3 to render the structured project map. It should look technical and sharp, using International Klein Blue nodes connected by thin black or grey edges."
+  },
+  "instructions_to_main_agent": [
+    "1. Setup complete Arabic RTL support. Apply dir='rtl' to the html tag and configure Tailwind to support RTL if necessary (e.g., using logical properties like ms-4 instead of ml-4, or letting Tailwind handle RTL plugin).",
+    "2. Use 'IBM Plex Sans Arabic' from Google Fonts for all typography.",
+    "3. Build pure HTML/Tailwind for the marketing/landing page, avoiding standard Shadcn card layouts to allow for the 'Tetris' grid asymmetry.",
+    "4. For the Dashboard, use Shadcn components (Inputs, Select, Dialog) but heavily customize them to remove borders radius (rounded-none or rounded-sm max) to maintain the Swiss Brutalist aesthetic.",
+    "5. Use Lucide React icons. Ensure interactive elements have hover and focus states with high contrast.",
+    "6. Apply data-testid attributes to ALL interactive elements (e.g., data-testid='login-button', data-testid='model-select').",
+    "7. Implement a strict monochrome UI with International Klein Blue (#002FA7) used EXCLUSIVELY for primary actions and key data highlights.",
+    "8. Integrate 'reactflow' or a similar library for the Mind Map visualization, styling the nodes to match the strict architectural theme."
+  ]
+}
