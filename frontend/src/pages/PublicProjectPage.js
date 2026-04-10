@@ -4,6 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import SaveButton from '../components/SaveButton';
+import CommentsSection from '../components/CommentsSection';
 import { Sun, Moon, ArrowRight, Eye, MessageCircle, Bookmark } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -140,8 +141,14 @@ const PublicProjectPage = () => {
         )}
 
         {/* Outputs (TODO: Add tabs for different outputs) */}
-        <div className="bg-card border border-border rounded-xl p-6 text-center">
-          <p className="text-muted-foreground">مخرجات المشروع ستظهر هنا قريباً...</p>
+        <div className="bg-card border border-border rounded-xl p-6 mb-6">
+          <h3 className="text-base font-semibold text-foreground mb-3">مخرجات المشروع</h3>
+          <p className="text-sm text-muted-foreground">المخرجات العامة للمشروع ستظهر هنا قريباً...</p>
+        </div>
+
+        {/* Comments Section */}
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+          <CommentsSection projectId={projectId} />
         </div>
       </div>
     </div>

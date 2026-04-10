@@ -2644,6 +2644,273 @@ async def get_user_projects(user_id: str, page: int = 1, limit: int = 20):
         logger.error(f"Error getting user projects: {e}")
         raise HTTPException(status_code=500, detail="حدث خطأ")
 
+# ==================== COMMENTS SYSTEM APIS ====================
+
+@api_router.get("/projects/{project_id}/comments")
+async def get_project_comments(project_id: str, page: int = 1, limit: int = 50):
+    """Get project comments with nested replies"""
+    try:
+        skip = (page - 1) * limit
+        
+        # Get top-level comments (no parent)
+        comments = await comments_collection.find(
+            {"project_id": project_id, "parent_comment_id": None},
+            {"_id": 0}
+        ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        
+        # For each comment, get replies and author info
+        for comment in comments:
+            # Get author info
+            author = await get_user_profile_data(comment["author_id"])
+            if author:
+                comment["author_name"] = author["name"]
+                comment["author_avatar"] = author.get("profile", {}).get("avatar")
+            
+            # Get replies
+            replies = await comments_collection.find(
+                {"parent_comment_id": comment["id"]},
+                {"_id": 0}
+            ).sort("created_at", 1).to_list(100)
+            
+            # Get author info for each reply
+            for reply in replies:
+                reply_author = await get_user_profile_data(reply["author_id"])
+                if reply_author:
+                    reply["author_name"] = reply_author["name"]
+                    reply["author_avatar"] = reply_author.get("profile", {}).get("avatar")
+            
+            comment["replies"] = replies
+        
+        return {"comments": comments, "page": page, "limit": limit}
+    except Exception as e:
+        logger.error(f"Error getting comments: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.post("/projects/{project_id}/comments")
+async def create_comment(
+    project_id: str,
+    comment_data: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new comment"""
+    try:
+        content = comment_data.get("content", "").strip()
+        comment_type = comment_data.get("type", "comment")
+        parent_comment_id = comment_data.get("parent_comment_id")
+        
+        if not content:
+            raise HTTPException(status_code=400, detail="المحتوى مطلوب")
+        
+        # Create comment
+        comment_doc = {
+            "id": str(uuid.uuid4()),
+            "project_id": project_id,
+            "author_id": current_user["id"],
+            "parent_comment_id": parent_comment_id,
+            "type": comment_type,
+            "content": content,
+            "reactions": {"fire": 0, "money": 0, "check": 0, "think": 0, "repeat": 0},
+            "helpful_count": 0,
+            "is_hidden": False,
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await comments_collection.insert_one(comment_doc)
+        
+        # Update project comments count
+        await public_projects_collection.update_one(
+            {"project_id": project_id},
+            {"$inc": {"stats.comments_count": 1}}
+        )
+        
+        # Add points for commenting
+        await add_user_points(current_user["id"], 5, "إضافة تعليق")
+        
+        # Get project owner and create notification
+        project = await public_projects_collection.find_one({"project_id": project_id}, {"_id": 0})
+        if project and project["owner_id"] != current_user["id"]:
+            await create_notification(
+                project["owner_id"],
+                "new_comment",
+                f"علق {current_user['name']} على مشروعك: {project['title']}",
+                f"/project/{project_id}/public"
+            )
+        
+        # If it's a reply, notify parent comment author
+        if parent_comment_id:
+            parent_comment = await comments_collection.find_one({"id": parent_comment_id}, {"_id": 0})
+            if parent_comment and parent_comment["author_id"] != current_user["id"]:
+                await create_notification(
+                    parent_comment["author_id"],
+                    "comment_reply",
+                    f"رد {current_user['name']} على تعليقك",
+                    f"/project/{project_id}/public"
+                )
+        
+        # Return comment with author info
+        comment_doc["author_name"] = current_user["name"]
+        comment_doc["author_avatar"] = None  # TODO: Get from profile
+        comment_doc["replies"] = []
+        
+        return comment_doc
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating comment: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.put("/comments/{comment_id}/reaction")
+async def toggle_comment_reaction(
+    comment_id: str,
+    reaction_data: Dict[str, str],
+    current_user: dict = Depends(get_current_user)
+):
+    """Toggle reaction on a comment"""
+    try:
+        reaction = reaction_data.get("reaction")
+        if reaction not in ["fire", "money", "check", "think", "repeat"]:
+            raise HTTPException(status_code=400, detail="نوع التفاعل غير صحيح")
+        
+        comment = await comments_collection.find_one({"id": comment_id}, {"_id": 0})
+        if not comment:
+            raise HTTPException(status_code=404, detail="التعليق غير موجود")
+        
+        # Simple implementation: just increment
+        # TODO: Track user reactions to allow toggle
+        await comments_collection.update_one(
+            {"id": comment_id},
+            {"$inc": {f"reactions.{reaction}": 1}}
+        )
+        
+        return {"message": "تم إضافة التفاعل"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling reaction: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.delete("/comments/{comment_id}")
+async def delete_comment(comment_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a comment"""
+    try:
+        comment = await comments_collection.find_one({"id": comment_id}, {"_id": 0})
+        if not comment:
+            raise HTTPException(status_code=404, detail="التعليق غير موجود")
+        
+        if comment["author_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="غير مصرح لك بحذف هذا التعليق")
+        
+        # Delete comment and its replies
+        await comments_collection.delete_many({
+            "$or": [
+                {"id": comment_id},
+                {"parent_comment_id": comment_id}
+            ]
+        })
+        
+        # Update project comments count
+        await public_projects_collection.update_one(
+            {"project_id": comment["project_id"]},
+            {"$inc": {"stats.comments_count": -1}}
+        )
+        
+        return {"message": "تم حذف التعليق"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting comment: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+# ==================== NOTIFICATIONS APIS ====================
+
+@api_router.get("/notifications")
+async def get_notifications(
+    current_user: dict = Depends(get_current_user),
+    page: int = 1,
+    limit: int = 20
+):
+    """Get user notifications"""
+    try:
+        skip = (page - 1) * limit
+        
+        notifications = await notifications_collection.find(
+            {"user_id": current_user["id"]},
+            {"_id": 0}
+        ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        
+        # Get unread count
+        unread_count = await notifications_collection.count_documents({
+            "user_id": current_user["id"],
+            "is_read": False
+        })
+        
+        return {
+            "notifications": notifications,
+            "unread_count": unread_count,
+            "page": page,
+            "limit": limit
+        }
+    except Exception as e:
+        logger.error(f"Error getting notifications: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.put("/notifications/read-all")
+async def mark_all_notifications_read(current_user: dict = Depends(get_current_user)):
+    """Mark all notifications as read"""
+    try:
+        await notifications_collection.update_many(
+            {"user_id": current_user["id"], "is_read": False},
+            {"$set": {"is_read": True}}
+        )
+        return {"message": "تم تعليم جميع الإشعارات كمقروءة"}
+    except Exception as e:
+        logger.error(f"Error marking notifications as read: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Mark single notification as read"""
+    try:
+        result = await notifications_collection.update_one(
+            {"id": notification_id, "user_id": current_user["id"]},
+            {"$set": {"is_read": True}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="الإشعار غير موجود")
+        
+        return {"message": "تم تعليم الإشعار كمقروء"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking notification as read: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.delete("/notifications/{notification_id}")
+async def delete_notification(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a notification"""
+    try:
+        result = await notifications_collection.delete_one({
+            "id": notification_id,
+            "user_id": current_user["id"]
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="الإشعار غير موجود")
+        
+        return {"message": "تم حذف الإشعار"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting notification: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
 # ==================== ROOT ====================
 
 @api_router.get("/")

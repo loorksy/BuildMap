@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import NotificationBell from '../components/NotificationBell';
 import { 
   Select, 
   SelectContent, 
@@ -46,7 +47,11 @@ import {
   CheckCircle,
   ExternalLink,
   Loader2,
-  MoreVertical
+  MoreVertical,
+  Share2,
+  Eye,
+  Globe,
+  Lock
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
@@ -81,6 +86,13 @@ const DashboardPage = () => {
   const [savingApiKey, setSavingApiKey] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('openrouter');
+
+  // Publish Dialog - Phase 1
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [publishingProject, setPublishingProject] = useState(null);
+  const [publishVisibility, setPublishVisibility] = useState('public');
+  const [publishCategory, setPublishCategory] = useState('');
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -194,6 +206,40 @@ const DashboardPage = () => {
     }
   };
 
+  const handlePublishProject = (project) => {
+    setPublishingProject(project);
+    setPublishCategory('');
+    setPublishVisibility('public');
+    setShowPublishDialog(true);
+  };
+
+  const confirmPublish = async () => {
+    if (!publishingProject) return;
+    
+    setPublishing(true);
+    try {
+      await axios.post(
+        `${API}/projects/${publishingProject.id}/publish`,
+        {
+          visibility: publishVisibility,
+          category: publishCategory || null,
+          status: 'idea',
+          public_outputs: [],
+          for_sale: false
+        },
+        { withCredentials: true }
+      );
+      
+      toast.success('تم نشر المشروع بنجاح! 🎉');
+      setShowPublishDialog(false);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'حدث خطأ أثناء النشر');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handleDeleteProject = async (projectId) => {
     try {
       await axios.delete(`${API}/projects/${projectId}`);
@@ -235,6 +281,21 @@ const DashboardPage = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Explore Link - Phase 1 */}
+            <Link to="/explore">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-lg text-xs sm:text-sm hidden sm:flex"
+              >
+                <Globe className="w-3.5 h-3.5 ml-1" />
+                استكشف
+              </Button>
+            </Link>
+
+            {/* Notification Bell - Phase 1 */}
+            <NotificationBell />
+
             {/* Theme Toggle */}
             <Button
               variant="ghost"
@@ -370,7 +431,15 @@ const DashboardPage = () => {
                         <MoreVertical className="w-3.5 h-3.5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="rounded-lg w-32">
+                    <DropdownMenuContent align="start" className="rounded-lg w-36">
+                      <DropdownMenuItem 
+                        onClick={() => handlePublishProject(project)}
+                        className="rounded-md text-xs"
+                      >
+                        <Share2 className="w-3 h-3 ml-2" />
+                        نشر للعامة
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem 
                         onClick={() => handleDeleteProject(project.id)}
                         className="text-destructive rounded-md text-xs"
@@ -630,6 +699,106 @@ const DashboardPage = () => {
                   جاري الحفظ...
                 </>
               ) : 'حفظ'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Publish Dialog - Phase 1 */}
+      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <DialogContent className="sm:max-w-md rounded-xl" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">نشر المشروع للعامة</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              اجعل مشروعك مرئياً في صفحة الاستكشاف
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-3">
+            {/* Visibility */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">مستوى الخصوصية</Label>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setPublishVisibility('public')}
+                  className={`w-full p-3 rounded-lg border-2 text-right transition-smooth ${
+                    publishVisibility === 'public'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Globe className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">عام</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">يظهر في صفحة الاستكشاف للجميع</p>
+                </button>
+                
+                <button
+                  onClick={() => setPublishVisibility('unlisted')}
+                  className={`w-full p-3 rounded-lg border-2 text-right transition-smooth ${
+                    publishVisibility === 'unlisted'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Eye className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">غير مدرج</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">فقط من لديه الرابط يمكنه رؤيته</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Category */}
+            <div className="space-y-1.5">
+              <Label htmlFor="category" className="text-xs">الفئة (اختياري)</Label>
+              <Select value={publishCategory} onValueChange={setPublishCategory}>
+                <SelectTrigger className="rounded-lg h-9 text-sm">
+                  <SelectValue placeholder="اختر فئة المشروع" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Web Application">Web Application</SelectItem>
+                  <SelectItem value="Mobile App">Mobile App</SelectItem>
+                  <SelectItem value="API & Backend">API & Backend</SelectItem>
+                  <SelectItem value="UI/UX Design">UI/UX Design</SelectItem>
+                  <SelectItem value="Dashboard & Analytics">Dashboard & Analytics</SelectItem>
+                  <SelectItem value="E-commerce">E-commerce</SelectItem>
+                  <SelectItem value="SaaS">SaaS</SelectItem>
+                  <SelectItem value="AI & ML">AI & ML</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowPublishDialog(false)}
+              disabled={publishing}
+              className="rounded-lg h-8 text-xs"
+            >
+              إلغاء
+            </Button>
+            <Button
+              size="sm"
+              onClick={confirmPublish}
+              disabled={publishing}
+              className="btn-primary rounded-lg h-8 text-xs"
+            >
+              {publishing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 ml-1.5 animate-spin" />
+                  جاري النشر...
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3.5 h-3.5 ml-1.5" />
+                  نشر الآن
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
