@@ -954,13 +954,140 @@ async def get_conversation_analysis(project_id: str, request: Request):
     analysis["verification"] = ai_analysis.get("verification", [])
     analysis["user_type"] = ai_analysis.get("user_type", {})
     
-    # Get smart suggestions
-    suggestions = get_smart_suggestions(analysis["current_stage"], " ".join([m["content"] for m in messages]))
-    
     return {
         **analysis,
-        "suggestions": suggestions
+        "suggestions": []  # Suggestions will be fetched from separate endpoint
     }
+
+# ==================== AI SUGGESTIONS ENDPOINT ====================
+
+@api_router.get("/projects/{project_id}/suggestions")
+async def get_ai_suggestions(project_id: str, request: Request):
+    """Get AI-generated feature suggestions based on project context"""
+    user = await get_current_user(request)
+    
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
+    if not project:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
+    # Get user's API key
+    user_keys = await get_user_api_keys(user["id"])
+    provider, api_key = determine_provider(project["selected_model"], user_keys)
+    if not provider:
+        raise HTTPException(status_code=400, detail=get_error_message("api_key_required"))
+    
+    # Get messages for context
+    messages = await db.messages.find(
+        {"project_id": project_id},
+        {"_id": 0, "role": 1, "content": 1}
+    ).to_list(100)
+    
+    # Build conversation context
+    conversation_context = "\n".join([f"{m['role']}: {m['content']}" for m in messages[-10:]])
+    
+    # Build prompt for AI suggestions
+    suggestion_prompt = f"""أنت مساعد ذكي في منصة BuildMap. مهمتك تقديم اقتراحات ميزات مفيدة للمشروع.
+
+معلومات المشروع:
+- العنوان: {project['title']}
+- الفكرة: {project['idea']}
+
+آخر المحادثات:
+{conversation_context}
+
+قم بتحليل المشروع واقترح 6 ميزات مناسبة يمكن إضافتها. لكل ميزة قدم:
+1. اسم قصير (كلمة أو كلمتين)
+2. أيقونة مناسبة من: users, credit-card, bell, layout-dashboard, search, message-circle, star, trending-up, lock, share-2, file-search, languages, shield, mail, map-pin, wallet, settings, calendar, image, video, music, phone, globe, shopping-cart, heart, bookmark, folder, archive, cloud, link
+3. prompt مفصل (3-4 أسطر) يصف الميزة بالتفصيل
+
+أجب بصيغة JSON فقط بدون أي نص إضافي:
+{{"suggestions": [
+  {{"label": "اسم الميزة", "icon": "icon-name", "prompt": "وصف مفصل للميزة..."}},
+  ...
+]}}"""
+
+    try:
+        # Make AI request using call_provider_api
+        url, headers, body = call_provider_api(
+            provider, api_key, project["selected_model"],
+            [
+                {"role": "system", "content": "أنت مساعد ذكي متخصص في تحليل المشاريع التقنية. أجب بصيغة JSON فقط."},
+                {"role": "user", "content": suggestion_prompt}
+            ],
+            stream=False
+        )
+        
+        if not url:
+            return {"suggestions": get_fallback_suggestions(project["idea"])}
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=headers, json=body)
+        
+        if response.status_code != 200:
+            logger.error(f"AI suggestion error: {response.text}")
+            return {"suggestions": get_fallback_suggestions(project["idea"])}
+        
+        result = response.json()
+        ai_content = result["choices"][0]["message"]["content"].strip()
+        
+        # Parse JSON from response
+        # Handle markdown code blocks
+        if "```json" in ai_content:
+            ai_content = ai_content.split("```json")[1].split("```")[0].strip()
+        elif "```" in ai_content:
+            ai_content = ai_content.split("```")[1].split("```")[0].strip()
+        
+        suggestions_data = json.loads(ai_content)
+        return suggestions_data
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parse error in suggestions: {e}")
+        return {"suggestions": get_fallback_suggestions(project["idea"])}
+    except Exception as e:
+        logger.error(f"Error getting AI suggestions: {e}")
+        return {"suggestions": get_fallback_suggestions(project["idea"])}
+
+def get_fallback_suggestions(idea: str) -> list:
+    """Return fallback suggestions based on idea keywords"""
+    idea_lower = idea.lower()
+    
+    suggestions = []
+    
+    # Always include these basic suggestions
+    base_suggestions = [
+        {"label": "إدارة المستخدمين", "icon": "users", "prompt": f"أريد إضافة نظام متكامل لإدارة المستخدمين في مشروع {idea[:30]}... يشمل:\n- تسجيل وتسجيل دخول\n- صفحة الملف الشخصي\n- إدارة الصلاحيات\n- استعادة كلمة المرور"},
+        {"label": "لوحة تحكم", "icon": "layout-dashboard", "prompt": f"أريد إضافة لوحة تحكم إدارية لمشروع {idea[:30]}... تشمل:\n- إحصائيات ورسوم بيانية\n- تقارير الأداء\n- إدارة المحتوى\n- سجل الأنشطة"},
+        {"label": "نظام إشعارات", "icon": "bell", "prompt": f"أريد إضافة نظام إشعارات لمشروع {idea[:30]}... يشمل:\n- إشعارات فورية\n- إشعارات بريد إلكتروني\n- تخصيص الإشعارات\n- أرشيف الإشعارات"},
+        {"label": "بحث متقدم", "icon": "search", "prompt": f"أريد إضافة نظام بحث متقدم لمشروع {idea[:30]}... يشمل:\n- بحث نصي سريع\n- فلترة متعددة\n- اقتراحات تلقائية\n- حفظ عمليات البحث"},
+        {"label": "تقييمات", "icon": "star", "prompt": f"أريد إضافة نظام تقييمات ومراجعات لمشروع {idea[:30]}... يشمل:\n- تقييم بالنجوم\n- كتابة مراجعات\n- الرد على المراجعات\n- عرض المتوسط"},
+        {"label": "مشاركة", "icon": "share-2", "prompt": f"أريد إضافة ميزات المشاركة لمشروع {idea[:30]}... تشمل:\n- مشاركة على وسائل التواصل\n- روابط قابلة للمشاركة\n- دعوة الأصدقاء\n- تتبع المشاركات"}
+    ]
+    
+    # Add context-specific suggestions
+    if any(word in idea_lower for word in ["تجارة", "متجر", "بيع", "شراء", "منتج"]):
+        suggestions.append({"label": "نظام دفع", "icon": "credit-card", "prompt": f"أريد إضافة نظام دفع إلكتروني لمشروع {idea[:30]}... يشمل:\n- بوابات دفع متعددة\n- سلة مشتريات\n- فواتير تلقائية\n- استرداد المدفوعات"})
+        suggestions.append({"label": "إدارة المخزون", "icon": "archive", "prompt": f"أريد إضافة نظام إدارة مخزون لمشروع {idea[:30]}... يشمل:\n- تتبع الكميات\n- تنبيهات النفاد\n- تقارير المخزون\n- إدارة الموردين"})
+    
+    if any(word in idea_lower for word in ["تواصل", "دردشة", "رسائل", "محادثة"]):
+        suggestions.append({"label": "دردشة مباشرة", "icon": "message-circle", "prompt": f"أريد إضافة نظام دردشة فورية لمشروع {idea[:30]}... يشمل:\n- محادثات خاصة\n- مجموعات\n- مشاركة الملفات\n- حالة الاتصال"})
+    
+    if any(word in idea_lower for word in ["حجز", "موعد", "جدول"]):
+        suggestions.append({"label": "نظام حجوزات", "icon": "calendar", "prompt": f"أريد إضافة نظام حجوزات لمشروع {idea[:30]}... يشمل:\n- تقويم تفاعلي\n- حجز المواعيد\n- تذكيرات تلقائية\n- إدارة التوفر"})
+    
+    if any(word in idea_lower for word in ["موقع", "خريطة", "توصيل", "مكان"]):
+        suggestions.append({"label": "خرائط وتتبع", "icon": "map-pin", "prompt": f"أريد إضافة خرائط وتتبع الموقع لمشروع {idea[:30]}... يشمل:\n- عرض الخريطة\n- تتبع الموقع\n- حساب المسافات\n- توجيه المسار"})
+    
+    # Fill with base suggestions
+    for s in base_suggestions:
+        if len(suggestions) < 6:
+            if s not in suggestions:
+                suggestions.append(s)
+    
+    return suggestions[:6]
 
 # ==================== MESSAGE ROUTES ====================
 

@@ -74,87 +74,36 @@ import {
   FileSearch,
   Languages,
   Wallet,
-  MapPin
+  MapPin,
+  Calendar,
+  Image,
+  Video,
+  Music,
+  Phone,
+  Heart,
+  Bookmark,
+  Folder,
+  Archive,
+  Cloud,
+  Link2,
+  RefreshCw
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Project feature suggestions with detailed prompts
-const projectSuggestions = [
-  {
-    id: 'new_customers',
-    label: 'عملاء جدد',
-    icon: Users,
-    prompt: 'أريد إضافة نظام لإدارة العملاء الجدد يشمل:\n- صفحة تسجيل عملاء جدد\n- نموذج جمع بيانات العميل (الاسم، البريد، الهاتف)\n- إشعار ترحيبي للعميل الجديد\n- لوحة تحكم لعرض العملاء الجدد'
-  },
-  {
-    id: 'payments',
-    label: 'نظام دفع',
-    icon: CreditCard,
-    prompt: 'أريد إضافة نظام دفع إلكتروني يشمل:\n- بوابة دفع متعددة (بطاقات، محافظ إلكترونية)\n- صفحة إتمام الشراء\n- فواتير تلقائية\n- سجل المعاملات المالية'
-  },
-  {
-    id: 'notifications',
-    label: 'إشعارات',
-    icon: Bell,
-    prompt: 'أريد إضافة نظام إشعارات يشمل:\n- إشعارات فورية داخل التطبيق\n- إشعارات بريد إلكتروني\n- إشعارات SMS اختيارية\n- إعدادات تخصيص الإشعارات للمستخدم'
-  },
-  {
-    id: 'dashboard',
-    label: 'لوحة تحكم',
-    icon: LayoutDashboard,
-    prompt: 'أريد إضافة لوحة تحكم إدارية تشمل:\n- إحصائيات عامة (المستخدمين، المبيعات، الزيارات)\n- رسوم بيانية تفاعلية\n- تقارير قابلة للتصدير\n- فلترة حسب التاريخ'
-  },
-  {
-    id: 'search',
-    label: 'بحث متقدم',
-    icon: Search,
-    prompt: 'أريد إضافة نظام بحث متقدم يشمل:\n- بحث نصي سريع\n- فلترة متعددة المعايير\n- اقتراحات تلقائية أثناء الكتابة\n- حفظ عمليات البحث السابقة'
-  },
-  {
-    id: 'chat',
-    label: 'دردشة مباشرة',
-    icon: MessageCircle,
-    prompt: 'أريد إضافة نظام دردشة مباشرة يشمل:\n- محادثات فورية بين المستخدمين\n- دعم الملفات والصور\n- حالة الاتصال (متصل/غير متصل)\n- أرشيف المحادثات'
-  },
-  {
-    id: 'reviews',
-    label: 'تقييمات',
-    icon: Star,
-    prompt: 'أريد إضافة نظام تقييمات ومراجعات يشمل:\n- تقييم بالنجوم (1-5)\n- كتابة مراجعات نصية\n- الرد على المراجعات\n- عرض متوسط التقييم'
-  },
-  {
-    id: 'analytics',
-    label: 'تحليلات',
-    icon: TrendingUp,
-    prompt: 'أريد إضافة نظام تحليلات يشمل:\n- تتبع سلوك المستخدم\n- تحليل مصادر الزيارات\n- معدلات التحويل\n- تقارير أداء مفصلة'
-  },
-  {
-    id: 'security',
-    label: 'حماية متقدمة',
-    icon: Lock,
-    prompt: 'أريد إضافة ميزات أمان متقدمة تشمل:\n- تسجيل دخول ثنائي (2FA)\n- تشفير البيانات الحساسة\n- سجل نشاط المستخدم\n- إدارة الجلسات النشطة'
-  },
-  {
-    id: 'sharing',
-    label: 'مشاركة اجتماعية',
-    icon: Share2,
-    prompt: 'أريد إضافة ميزات المشاركة الاجتماعية تشمل:\n- مشاركة على فيسبوك، تويتر، واتساب\n- روابط قابلة للمشاركة\n- معاينة عند المشاركة (Open Graph)\n- تتبع المشاركات'
-  },
-  {
-    id: 'reports',
-    label: 'تقارير PDF',
-    icon: FileSearch,
-    prompt: 'أريد إضافة نظام تقارير PDF يشمل:\n- توليد تقارير تلقائية\n- قوالب تقارير متعددة\n- تصدير بصيغ مختلفة (PDF, Excel)\n- جدولة إرسال التقارير'
-  },
-  {
-    id: 'multilang',
-    label: 'تعدد اللغات',
-    icon: Languages,
-    prompt: 'أريد إضافة دعم تعدد اللغات يشمل:\n- دعم العربية والإنجليزية\n- تبديل سهل بين اللغات\n- ترجمة المحتوى الديناميكي\n- حفظ تفضيل اللغة للمستخدم'
-  }
-];
+// Icon mapping
+const iconMap = {
+  'users': Users, 'credit-card': CreditCard, 'bell': Bell, 'layout-dashboard': LayoutDashboard,
+  'search': Search, 'message-circle': MessageCircle, 'star': Star, 'trending-up': TrendingUp,
+  'lock': Lock, 'share-2': Share2, 'file-search': FileSearch, 'languages': Languages,
+  'shield': Shield, 'mail': Mail, 'map-pin': MapPin, 'wallet': Wallet, 'settings': Settings,
+  'calendar': Calendar, 'image': Image, 'video': Video, 'music': Music, 'phone': Phone,
+  'globe': Globe, 'shopping-cart': ShoppingCart, 'heart': Heart, 'bookmark': Bookmark,
+  'folder': Folder, 'archive': Archive, 'cloud': Cloud, 'link': Link2, 'code': Code,
+  'database': Database, 'zap': Zap, 'sparkles': Sparkles, 'plus': Plus, 'lightbulb': Lightbulb,
+  'target': Target, 'palette': Palette, 'rocket': Rocket, 'layers': Layers
+};
 
 const ProjectPage = () => {
   const { projectId } = useParams();
@@ -179,7 +128,9 @@ const ProjectPage = () => {
   const [exporting, setExporting] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   
-  // Suggestion prompt preview
+  // AI Suggestions
+  const [suggestions, setSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
 
   useEffect(() => { fetchProjectData(); }, [projectId]);
@@ -195,19 +146,37 @@ const ProjectPage = () => {
       setProject(projectRes.data);
       setMessages(messagesRes.data);
       setModels(modelsRes.data);
+      
       try {
         const analysisRes = await axios.get(`${API}/projects/${projectId}/analysis`);
         setAnalysis(analysisRes.data);
       } catch (e) {}
+      
       try {
         const outputsRes = await axios.get(`${API}/projects/${projectId}/outputs`);
         setOutputs(outputsRes.data);
       } catch (e) {}
+      
+      // Fetch AI suggestions
+      fetchSuggestions();
+      
     } catch (error) {
       toast.error(error.response?.data?.detail || 'حدث خطأ في تحميل المشروع');
       navigate('/dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSuggestions = async () => {
+    setLoadingSuggestions(true);
+    try {
+      const res = await axios.get(`${API}/projects/${projectId}/suggestions`);
+      setSuggestions(res.data.suggestions || []);
+    } catch (e) {
+      console.log('Failed to load suggestions');
+    } finally {
+      setLoadingSuggestions(false);
     }
   };
 
@@ -253,6 +222,8 @@ const ProjectPage = () => {
               setMessages(prev => prev.map(m => m.id === streamingMsgId ? { ...m, id: event.id, created_at: event.created_at, isStreaming: false } : m));
               if (event.analysis) setAnalysis(event.analysis);
               if (event.ready_to_generate) toast.success('المشروع جاهز لتوليد المخرجات!');
+              // Refresh suggestions after each message
+              fetchSuggestions();
             } else if (event.type === 'error') {
               toast.error(event.content);
               setMessages(prev => prev.filter(m => m.id !== streamingMsgId));
@@ -362,6 +333,10 @@ const ProjectPage = () => {
       'generation': { name: 'التوليد', icon: Rocket, color: 'text-red-500' },
     };
     return stageNames[stageId] || { name: stageId, icon: Target, color: 'text-gray-500' };
+  };
+
+  const getIcon = (iconName) => {
+    return iconMap[iconName] || Sparkles;
   };
 
   if (loading) {
@@ -559,7 +534,10 @@ const ProjectPage = () => {
                 <div className="max-w-3xl mx-auto">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <selectedSuggestion.icon className="w-4 h-4 text-primary" />
+                      {(() => {
+                        const Icon = getIcon(selectedSuggestion.icon);
+                        return <Icon className="w-4 h-4 text-primary" />;
+                      })()}
                       <span className="text-xs font-medium text-foreground">{selectedSuggestion.label}</span>
                     </div>
                     <Button variant="ghost" size="sm" onClick={handleCancelSuggestion} className="h-6 w-6 p-0 rounded-md hover:bg-destructive/10 hover:text-destructive">
@@ -582,31 +560,52 @@ const ProjectPage = () => {
               </div>
             )}
 
-            {/* Project Feature Suggestions */}
+            {/* AI-Generated Suggestions */}
             {!selectedSuggestion && !sending && !generating && (
               <div className="px-3 sm:px-4 py-2.5 bg-muted/30 border-b border-border/50">
                 <div className="max-w-3xl mx-auto">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Plus className="w-3 h-3 text-muted-foreground" />
-                    <p className="text-[9px] sm:text-[10px] text-muted-foreground font-medium">إضافة ميزة للمشروع:</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-primary" />
+                      <p className="text-[9px] sm:text-[10px] text-muted-foreground font-medium">اقتراحات ذكية للمشروع:</p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={fetchSuggestions} 
+                      disabled={loadingSuggestions}
+                      className="h-5 w-5 p-0 rounded-md"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loadingSuggestions ? 'animate-spin' : ''}`} />
+                    </Button>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {projectSuggestions.slice(0, 8).map((suggestion) => {
-                      const Icon = suggestion.icon;
-                      return (
-                        <Button
-                          key={suggestion.id}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSuggestionClick(suggestion)}
-                          className="rounded-full text-[10px] sm:text-xs h-7 px-2.5 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
-                        >
-                          <Icon className="w-3 h-3 ml-1" />
-                          {suggestion.label}
-                        </Button>
-                      );
-                    })}
-                  </div>
+                  
+                  {loadingSuggestions ? (
+                    <div className="flex items-center justify-center py-3">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground mr-2">جاري تحليل المشروع...</span>
+                    </div>
+                  ) : suggestions.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestions.slice(0, 6).map((suggestion, idx) => {
+                        const Icon = getIcon(suggestion.icon);
+                        return (
+                          <Button
+                            key={idx}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className="rounded-full text-[10px] sm:text-xs h-7 px-2.5 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
+                          >
+                            <Icon className="w-3 h-3 ml-1" />
+                            {suggestion.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground text-center py-2">لا توجد اقتراحات متاحة حالياً</p>
+                  )}
                 </div>
               </div>
             )}
