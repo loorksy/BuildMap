@@ -107,6 +107,34 @@ class OutputResponse(BaseModel):
     mindmap: Optional[str] = None
     created_at: str
 
+# ==================== ERROR MESSAGES ====================
+
+ERROR_MESSAGES = {
+    "invalid_credentials": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+    "email_exists": "هذا البريد الإلكتروني مسجل مسبقاً",
+    "not_authenticated": "يرجى تسجيل الدخول للمتابعة",
+    "token_expired": "انتهت صلاحية الجلسة، يرجى تسجيل الدخول مجدداً",
+    "invalid_token": "جلسة غير صالحة، يرجى تسجيل الدخول مجدداً",
+    "user_not_found": "المستخدم غير موجود",
+    "project_not_found": "المشروع غير موجود أو ليس لديك صلاحية الوصول إليه",
+    "api_key_required": "يرجى إضافة مفتاح OpenRouter API أولاً من الإعدادات",
+    "api_key_invalid": "مفتاح API غير صالح أو منتهي الصلاحية",
+    "ai_connection_error": "تعذر الاتصال بخدمة الذكاء الاصطناعي، يرجى المحاولة لاحقاً",
+    "ai_timeout": "استغرق الرد وقتاً طويلاً، يرجى المحاولة مجدداً",
+    "rate_limit": "تم تجاوز الحد المسموح من الطلبات، يرجى الانتظار قليلاً",
+    "model_not_available": "النموذج المحدد غير متاح حالياً، يرجى اختيار نموذج آخر",
+    "insufficient_credits": "رصيد API غير كافٍ، يرجى شحن حسابك على OpenRouter",
+    "generation_failed": "فشل في توليد المخرجات، يرجى المحاولة مجدداً",
+    "outputs_not_found": "لم يتم توليد المخرجات بعد، ابدأ محادثة مع المساعد أولاً",
+    "server_error": "حدث خطأ في الخادم، يرجى المحاولة لاحقاً"
+}
+
+def get_error_message(key: str, details: str = None) -> str:
+    message = ERROR_MESSAGES.get(key, ERROR_MESSAGES["server_error"])
+    if details:
+        message = f"{message}: {details}"
+    return message
+
 # ==================== HELPERS ====================
 
 def hash_password(password: str) -> str:
@@ -136,7 +164,6 @@ def create_refresh_token(user_id: str) -> str:
 
 def get_fernet():
     key = ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else ENCRYPTION_KEY
-    # Ensure key is valid Fernet key
     if len(key) != 44:
         key = base64.urlsafe_b64encode(hashlib.sha256(key).digest())
     return Fernet(key)
@@ -156,14 +183,14 @@ async def get_current_user(request: Request) -> dict:
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
     if not token:
-        raise HTTPException(status_code=401, detail="غير مصرح")
+        raise HTTPException(status_code=401, detail=get_error_message("not_authenticated"))
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("type") != "access":
-            raise HTTPException(status_code=401, detail="نوع التوكن غير صالح")
+            raise HTTPException(status_code=401, detail=get_error_message("invalid_token"))
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
-            raise HTTPException(status_code=401, detail="المستخدم غير موجود")
+            raise HTTPException(status_code=401, detail=get_error_message("user_not_found"))
         return {
             "id": str(user["_id"]),
             "email": user["email"],
@@ -171,9 +198,9 @@ async def get_current_user(request: Request) -> dict:
             "created_at": user["created_at"]
         }
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="انتهت صلاحية التوكن")
+        raise HTTPException(status_code=401, detail=get_error_message("token_expired"))
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="توكن غير صالح")
+        raise HTTPException(status_code=401, detail=get_error_message("invalid_token"))
 
 # ==================== AUTH ROUTES ====================
 
@@ -181,9 +208,12 @@ async def get_current_user(request: Request) -> dict:
 async def register(user_data: UserRegister, response: Response):
     email = user_data.email.lower()
     
+    if len(user_data.password) < 6:
+        raise HTTPException(status_code=400, detail="كلمة المرور يجب أن تكون 6 أحرف على الأقل")
+    
     existing = await db.users.find_one({"email": email})
     if existing:
-        raise HTTPException(status_code=400, detail="البريد الإلكتروني مستخدم بالفعل")
+        raise HTTPException(status_code=400, detail=get_error_message("email_exists"))
     
     hashed = hash_password(user_data.password)
     user_doc = {
@@ -215,10 +245,10 @@ async def login(user_data: UserLogin, response: Response):
     
     user = await db.users.find_one({"email": email})
     if not user:
-        raise HTTPException(status_code=401, detail="بيانات الدخول غير صحيحة")
+        raise HTTPException(status_code=401, detail=get_error_message("invalid_credentials"))
     
     if not verify_password(user_data.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="بيانات الدخول غير صحيحة")
+        raise HTTPException(status_code=401, detail=get_error_message("invalid_credentials"))
     
     user_id = str(user["_id"])
     access_token = create_access_token(user_id, email)
@@ -250,6 +280,21 @@ async def get_me(request: Request):
 @api_router.post("/api-keys")
 async def create_api_key(key_data: APIKeyCreate, request: Request):
     user = await get_current_user(request)
+    
+    # Validate API key by fetching models
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            response = await http_client.get(
+                "https://openrouter.ai/api/v1/models",
+                headers={"Authorization": f"Bearer {key_data.api_key}"}
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=400, detail=get_error_message("api_key_invalid"))
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=400, detail=get_error_message("ai_timeout"))
+    except Exception as e:
+        logger.error(f"API key validation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=get_error_message("api_key_invalid"))
     
     # Delete existing key for this user
     await db.api_keys.delete_many({"user_id": user["id"]})
@@ -296,6 +341,83 @@ async def delete_api_key(request: Request):
     await db.api_keys.delete_many({"user_id": user["id"]})
     return {"message": "تم حذف المفتاح"}
 
+# ==================== DYNAMIC MODELS FROM OPENROUTER ====================
+
+@api_router.get("/models")
+async def get_available_models(request: Request):
+    """Get models - returns user's available models if they have API key, otherwise returns default list"""
+    try:
+        user = await get_current_user(request)
+        api_key_doc = await db.api_keys.find_one({"user_id": user["id"]})
+        
+        if api_key_doc:
+            api_key = decrypt_api_key(api_key_doc["encrypted_key"])
+            
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                response = await http_client.get(
+                    "https://openrouter.ai/api/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    models = []
+                    for model in data.get("data", []):
+                        model_id = model.get("id", "")
+                        name = model.get("name", model_id)
+                        pricing = model.get("pricing", {})
+                        prompt_price = float(pricing.get("prompt", "0") or "0")
+                        
+                        # Determine if free
+                        is_free = prompt_price == 0
+                        
+                        # Get context length
+                        context_length = model.get("context_length", 0)
+                        
+                        # Extract provider from model id
+                        provider = model_id.split("/")[0] if "/" in model_id else "unknown"
+                        provider_names = {
+                            "openai": "OpenAI",
+                            "anthropic": "Anthropic",
+                            "google": "Google",
+                            "meta-llama": "Meta",
+                            "mistralai": "Mistral",
+                            "cohere": "Cohere",
+                            "perplexity": "Perplexity",
+                            "deepseek": "DeepSeek",
+                            "qwen": "Qwen"
+                        }
+                        
+                        models.append({
+                            "id": model_id,
+                            "name": name,
+                            "provider": provider_names.get(provider, provider.title()),
+                            "is_free": is_free,
+                            "context_length": context_length,
+                            "pricing": {
+                                "prompt": pricing.get("prompt", "0"),
+                                "completion": pricing.get("completion", "0")
+                            }
+                        })
+                    
+                    # Sort: free first, then by provider
+                    models.sort(key=lambda x: (not x["is_free"], x["provider"], x["name"]))
+                    return models
+    except:
+        pass
+    
+    # Return default models if no API key or error
+    return [
+        {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "OpenAI", "is_free": False, "context_length": 128000},
+        {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI", "is_free": False, "context_length": 128000},
+        {"id": "openai/gpt-3.5-turbo", "name": "GPT-3.5 Turbo", "provider": "OpenAI", "is_free": False, "context_length": 16385},
+        {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic", "is_free": False, "context_length": 200000},
+        {"id": "anthropic/claude-3-haiku", "name": "Claude 3 Haiku", "provider": "Anthropic", "is_free": False, "context_length": 200000},
+        {"id": "google/gemini-pro-1.5", "name": "Gemini Pro 1.5", "provider": "Google", "is_free": False, "context_length": 1000000},
+        {"id": "meta-llama/llama-3.1-70b-instruct", "name": "Llama 3.1 70B", "provider": "Meta", "is_free": False, "context_length": 131072},
+        {"id": "mistralai/mixtral-8x7b-instruct", "name": "Mixtral 8x7B", "provider": "Mistral", "is_free": False, "context_length": 32768},
+    ]
+
 # ==================== PROJECT ROUTES ====================
 
 @api_router.post("/projects")
@@ -304,7 +426,7 @@ async def create_project(project_data: ProjectCreate, request: Request):
     
     # Get user's default model
     api_key = await db.api_keys.find_one({"user_id": user["id"]})
-    default_model = api_key["default_model"] if api_key else "openai/gpt-4"
+    default_model = api_key["default_model"] if api_key else "openai/gpt-4o"
     
     project_doc = {
         "user_id": user["id"],
@@ -322,15 +444,17 @@ async def create_project(project_data: ProjectCreate, request: Request):
     system_message = {
         "project_id": project_id,
         "role": "assistant",
-        "content": """مرحباً! أنا مساعدك الذكي في BuildMap. سأساعدك في تحويل فكرتك إلى مشروع تقني منظم.
+        "content": f"""مرحباً! أنا مساعدك الذكي في BuildMap. سأساعدك في تحويل فكرتك إلى مشروع تقني منظم.
 
 لنبدأ بفهم فكرتك بشكل أفضل. سأطرح عليك بعض الأسئلة:
 
-1️⃣ **ما نوع المشروع؟** (تطبيق ويب، تطبيق موبايل، API، نظام متكامل...)
-2️⃣ **من هي الفئة المستهدفة؟** (مستخدمين عاديين، شركات، مطورين...)
-3️⃣ **ما المشكلة التي يحلها مشروعك؟**
+ما نوع المشروع الذي تفكر فيه؟ (تطبيق ويب، تطبيق موبايل، API، نظام متكامل...)
 
-أخبرني المزيد عن فكرتك: """ + project_data.idea,
+من هي الفئة المستهدفة؟ (مستخدمين عاديين، شركات، مطورين...)
+
+ما المشكلة التي يحلها مشروعك؟
+
+أخبرني المزيد عن فكرتك: {project_data.idea}""",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.messages.insert_one(system_message)
@@ -356,7 +480,6 @@ async def get_projects(request: Request):
     
     result = []
     for p in projects:
-        # Check if has outputs
         output = await db.outputs.find_one({"project_id": str(p["_id"])})
         result.append({
             "id": str(p["_id"]),
@@ -374,9 +497,13 @@ async def get_projects(request: Request):
 async def get_project(project_id: str, request: Request):
     user = await get_current_user(request)
     
-    project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
     if not project:
-        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
     output = await db.outputs.find_one({"project_id": project_id})
     
@@ -394,9 +521,13 @@ async def get_project(project_id: str, request: Request):
 async def update_project(project_id: str, update_data: ProjectUpdate, request: Request):
     user = await get_current_user(request)
     
-    project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
     if not project:
-        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
     update_dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
     if update_data.title:
@@ -412,9 +543,13 @@ async def update_project(project_id: str, update_data: ProjectUpdate, request: R
 async def delete_project(project_id: str, request: Request):
     user = await get_current_user(request)
     
-    project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
     if not project:
-        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
     await db.projects.delete_one({"_id": ObjectId(project_id)})
     await db.messages.delete_many({"project_id": project_id})
@@ -428,9 +563,13 @@ async def delete_project(project_id: str, request: Request):
 async def get_messages(project_id: str, request: Request):
     user = await get_current_user(request)
     
-    project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
     if not project:
-        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
     messages = await db.messages.find(
         {"project_id": project_id},
@@ -451,14 +590,18 @@ async def get_messages(project_id: str, request: Request):
 async def send_message(project_id: str, message_data: MessageCreate, request: Request):
     user = await get_current_user(request)
     
-    project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
     if not project:
-        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
     # Get user's API key
     api_key_doc = await db.api_keys.find_one({"user_id": user["id"]})
     if not api_key_doc:
-        raise HTTPException(status_code=400, detail="يرجى إضافة مفتاح API أولاً")
+        raise HTTPException(status_code=400, detail=get_error_message("api_key_required"))
     
     api_key = decrypt_api_key(api_key_doc["encrypted_key"])
     
@@ -499,8 +642,8 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
     
     # Call OpenRouter API
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
+        async with httpx.AsyncClient(timeout=60.0) as http_client:
+            response = await http_client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {api_key}",
@@ -516,19 +659,30 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
                 }
             )
             
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"OpenRouter error: {error_detail}")
-                raise HTTPException(status_code=500, detail=f"خطأ في الاتصال بالذكاء الاصطناعي: {response.status_code}")
+            if response.status_code == 401:
+                raise HTTPException(status_code=400, detail=get_error_message("api_key_invalid"))
+            elif response.status_code == 402:
+                raise HTTPException(status_code=400, detail=get_error_message("insufficient_credits"))
+            elif response.status_code == 429:
+                raise HTTPException(status_code=429, detail=get_error_message("rate_limit"))
+            elif response.status_code != 200:
+                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+                error_msg = error_data.get("error", {}).get("message", "")
+                if "model" in error_msg.lower():
+                    raise HTTPException(status_code=400, detail=get_error_message("model_not_available"))
+                logger.error(f"OpenRouter error: {response.status_code} - {response.text}")
+                raise HTTPException(status_code=500, detail=get_error_message("ai_connection_error"))
             
             result = response.json()
             assistant_content = result["choices"][0]["message"]["content"]
             
     except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="انتهت مهلة الاتصال")
+        raise HTTPException(status_code=504, detail=get_error_message("ai_timeout"))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"API Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"خطأ: {str(e)}")
+        raise HTTPException(status_code=500, detail=get_error_message("ai_connection_error"))
     
     # Check if ready to generate
     ready_to_generate = "[READY_TO_GENERATE]" in assistant_content
@@ -563,13 +717,17 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
 async def generate_outputs(project_id: str, request: Request):
     user = await get_current_user(request)
     
-    project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
     if not project:
-        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
     api_key_doc = await db.api_keys.find_one({"user_id": user["id"]})
     if not api_key_doc:
-        raise HTTPException(status_code=400, detail="يرجى إضافة مفتاح API أولاً")
+        raise HTTPException(status_code=400, detail=get_error_message("api_key_required"))
     
     api_key = decrypt_api_key(api_key_doc["encrypted_key"])
     
@@ -693,11 +851,11 @@ async def generate_outputs(project_id: str, request: Request):
                     result = response.json()
                     outputs[key] = result["choices"][0]["message"]["content"]
                 else:
-                    outputs[key] = f"خطأ في التوليد: {response.status_code}"
+                    outputs[key] = "تعذر توليد هذا المحتوى، يرجى المحاولة مجدداً"
                     
             except Exception as e:
                 logger.error(f"Error generating {key}: {str(e)}")
-                outputs[key] = f"خطأ: {str(e)}"
+                outputs[key] = "تعذر توليد هذا المحتوى، يرجى المحاولة مجدداً"
     
     # Save outputs
     output_doc = {
@@ -724,33 +882,20 @@ async def generate_outputs(project_id: str, request: Request):
 async def get_outputs(project_id: str, request: Request):
     user = await get_current_user(request)
     
-    project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
     if not project:
-        raise HTTPException(status_code=404, detail="المشروع غير موجود")
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
     output = await db.outputs.find_one({"project_id": project_id}, {"_id": 0})
     
     if not output:
-        raise HTTPException(status_code=404, detail="لم يتم توليد المخرجات بعد")
+        raise HTTPException(status_code=404, detail=get_error_message("outputs_not_found"))
     
     return output
-
-# ==================== AVAILABLE MODELS ====================
-
-@api_router.get("/models")
-async def get_available_models():
-    return [
-        {"id": "openai/gpt-4", "name": "GPT-4", "provider": "OpenAI"},
-        {"id": "openai/gpt-4-turbo", "name": "GPT-4 Turbo", "provider": "OpenAI"},
-        {"id": "openai/gpt-3.5-turbo", "name": "GPT-3.5 Turbo", "provider": "OpenAI"},
-        {"id": "anthropic/claude-3-opus", "name": "Claude 3 Opus", "provider": "Anthropic"},
-        {"id": "anthropic/claude-3-sonnet", "name": "Claude 3 Sonnet", "provider": "Anthropic"},
-        {"id": "anthropic/claude-3-haiku", "name": "Claude 3 Haiku", "provider": "Anthropic"},
-        {"id": "mistralai/mixtral-8x7b-instruct", "name": "Mixtral 8x7B", "provider": "Mistral"},
-        {"id": "mistralai/mistral-large", "name": "Mistral Large", "provider": "Mistral"},
-        {"id": "google/gemini-pro", "name": "Gemini Pro", "provider": "Google"},
-        {"id": "meta-llama/llama-3-70b-instruct", "name": "Llama 3 70B", "provider": "Meta"}
-    ]
 
 # ==================== ROOT ====================
 
@@ -773,7 +918,6 @@ app.add_middleware(
 # Startup
 @app.on_event("startup")
 async def startup():
-    # Create indexes
     await db.users.create_index("email", unique=True)
     await db.api_keys.create_index("user_id")
     await db.projects.create_index("user_id")

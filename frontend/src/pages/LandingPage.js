@@ -1,25 +1,37 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Zap, Target, FileCode, Brain, Sparkles } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { ArrowLeft, Zap, Target, FileCode, Brain, Sparkles, Sun, Moon } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
 const LandingPage = () => {
+  const { theme, toggleTheme } = useTheme();
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA]" dir="rtl">
+    <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
-      <header className="bg-white border-b border-[#E5E5E5] sticky top-0 z-50">
+      <header className="glass border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#002FA7] flex items-center justify-center">
-              <span className="text-white font-black text-lg">B</span>
+            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
+              <span className="text-primary-foreground font-black text-lg">B</span>
             </div>
-            <span className="text-xl font-bold text-[#1A1A1A] tracking-tight">BuildMap</span>
+            <span className="text-xl font-bold text-foreground tracking-tight">BuildMap</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="rounded-xl"
+              data-testid="theme-toggle-btn"
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </Button>
             <Link to="/login">
               <Button 
                 variant="ghost" 
-                className="text-[#666666] hover:text-[#1A1A1A] hover:bg-[#F5F5F5]"
+                className="text-muted-foreground hover:text-foreground rounded-xl"
                 data-testid="header-login-btn"
               >
                 تسجيل الدخول
@@ -27,7 +39,7 @@ const LandingPage = () => {
             </Link>
             <Link to="/register">
               <Button 
-                className="bg-[#002FA7] hover:bg-[#002480] text-white font-bold px-6 rounded-none"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 rounded-xl"
                 data-testid="header-register-btn"
               >
                 ابدأ الآن
@@ -39,25 +51,26 @@ const LandingPage = () => {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 py-20 lg:py-32">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-blue-500/5" />
+        <div className="max-w-7xl mx-auto px-6 py-20 lg:py-32 relative">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#E6EAF6] border border-[#002FA7]/20">
-                <Sparkles className="w-4 h-4 text-[#002FA7]" />
-                <span className="text-sm font-medium text-[#002FA7]">مدعوم بالذكاء الاصطناعي</span>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">مدعوم بالذكاء الاصطناعي</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter text-[#1A1A1A] leading-tight">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-foreground leading-tight">
                 حوّل أفكارك العشوائية
                 <br />
-                <span className="text-[#002FA7]">إلى مشاريع جاهزة</span>
+                <span className="gradient-text">إلى مشاريع جاهزة</span>
               </h1>
-              <p className="text-lg text-[#666666] leading-relaxed max-w-lg">
+              <p className="text-lg text-muted-foreground leading-relaxed max-w-lg">
                 منصة ذكية تساعدك في تحويل فكرتك من مجرد خاطرة إلى خطة تقنية متكاملة وجاهزة للتنفيذ، من خلال حوار تفاعلي مع الذكاء الاصطناعي.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link to="/register">
                   <Button 
-                    className="bg-[#002FA7] hover:bg-[#002480] text-white font-bold px-8 py-6 text-lg rounded-none flex items-center gap-2"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 py-6 text-lg rounded-xl flex items-center gap-2 shadow-lg shadow-primary/25"
                     data-testid="hero-start-btn"
                   >
                     ابدأ مجاناً
@@ -67,7 +80,7 @@ const LandingPage = () => {
                 <Link to="/login">
                   <Button 
                     variant="outline"
-                    className="border-[#1A1A1A] text-[#1A1A1A] hover:bg-[#F5F5F5] font-bold px-8 py-6 text-lg rounded-none"
+                    className="border-border hover:bg-accent font-semibold px-8 py-6 text-lg rounded-xl"
                     data-testid="hero-login-btn"
                   >
                     لدي حساب
@@ -76,13 +89,13 @@ const LandingPage = () => {
               </div>
             </div>
             <div className="relative">
-              <div className="aspect-square relative">
+              <div className="aspect-square relative rounded-3xl overflow-hidden shadow-2xl">
                 <img 
                   src="https://static.prod-images.emergentagent.com/jobs/b878669f-29c7-48e6-a252-07344449ce6e/images/113d56e53b5a78e8d35bcd15c548bcdb4ec9ecc61997cfc6ac208a9f0efd2d82.png"
                   alt="من الفوضى إلى النظام"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#FAFAFA] to-transparent opacity-30"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-background/50 to-transparent" />
               </div>
             </div>
           </div>
@@ -90,47 +103,47 @@ const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section className="bg-white border-t border-b border-[#E5E5E5] py-20">
+      <section className="py-20 border-t border-border">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">
               كيف يعمل BuildMap؟
             </h2>
-            <p className="text-[#666666] text-lg max-w-2xl mx-auto">
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               ثلاث خطوات بسيطة لتحويل فكرتك إلى مشروع منظم
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-0 border border-[#E5E5E5]">
-            <div className="p-8 border-l border-[#E5E5E5] hover:bg-[#F5F5F5] transition-colors">
-              <div className="w-12 h-12 bg-[#002FA7] flex items-center justify-center mb-6">
-                <Brain className="w-6 h-6 text-white" />
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-card border border-border rounded-2xl p-8 hover:shadow-lg hover:border-primary/30 transition-all duration-300 group">
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
+                <Brain className="w-7 h-7 text-primary" />
               </div>
-              <div className="text-sm font-bold text-[#999999] tracking-wider mb-2">01</div>
-              <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">اطرح فكرتك</h3>
-              <p className="text-[#666666]">
+              <div className="text-sm font-semibold text-muted-foreground mb-2">الخطوة الأولى</div>
+              <h3 className="text-xl font-bold text-foreground mb-3">اطرح فكرتك</h3>
+              <p className="text-muted-foreground">
                 شارك فكرتك مهما كانت عشوائية أو غير مكتملة. المساعد الذكي سيساعدك في صقلها.
               </p>
             </div>
             
-            <div className="p-8 border-l border-[#E5E5E5] hover:bg-[#F5F5F5] transition-colors">
-              <div className="w-12 h-12 bg-[#002FA7] flex items-center justify-center mb-6">
-                <Target className="w-6 h-6 text-white" />
+            <div className="bg-card border border-border rounded-2xl p-8 hover:shadow-lg hover:border-primary/30 transition-all duration-300 group">
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
+                <Target className="w-7 h-7 text-primary" />
               </div>
-              <div className="text-sm font-bold text-[#999999] tracking-wider mb-2">02</div>
-              <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">أجب على الأسئلة</h3>
-              <p className="text-[#666666]">
+              <div className="text-sm font-semibold text-muted-foreground mb-2">الخطوة الثانية</div>
+              <h3 className="text-xl font-bold text-foreground mb-3">أجب على الأسئلة</h3>
+              <p className="text-muted-foreground">
                 سيطرح عليك المساعد أسئلة ذكية ومتدرجة لفهم فكرتك بشكل أعمق.
               </p>
             </div>
             
-            <div className="p-8 hover:bg-[#F5F5F5] transition-colors">
-              <div className="w-12 h-12 bg-[#002FA7] flex items-center justify-center mb-6">
-                <FileCode className="w-6 h-6 text-white" />
+            <div className="bg-card border border-border rounded-2xl p-8 hover:shadow-lg hover:border-primary/30 transition-all duration-300 group">
+              <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
+                <FileCode className="w-7 h-7 text-primary" />
               </div>
-              <div className="text-sm font-bold text-[#999999] tracking-wider mb-2">03</div>
-              <h3 className="text-xl font-semibold text-[#1A1A1A] mb-3">احصل على المخرجات</h3>
-              <p className="text-[#666666]">
+              <div className="text-sm font-semibold text-muted-foreground mb-2">الخطوة الثالثة</div>
+              <h3 className="text-xl font-bold text-foreground mb-3">احصل على المخرجات</h3>
+              <p className="text-muted-foreground">
                 استلم ملفات جاهزة: خطة العمل، المتطلبات التقنية، خريطة ذهنية، والمزيد.
               </p>
             </div>
@@ -139,35 +152,41 @@ const LandingPage = () => {
       </section>
 
       {/* Outputs Section */}
-      <section className="py-20">
+      <section className="py-20 bg-muted/50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] tracking-tight mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">
               المخرجات التي ستحصل عليها
             </h2>
-            <p className="text-[#666666] text-lg">
+            <p className="text-muted-foreground text-lg">
               6 ملفات احترافية جاهزة للتنفيذ
             </p>
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { title: 'README Frontend', desc: 'توثيق كامل للواجهة الأمامية', icon: '📄' },
-              { title: 'README Backend', desc: 'توثيق الخادم الخلفي والـ APIs', icon: '⚙️' },
-              { title: 'خطة العمل', desc: 'مراحل التنفيذ والجدول الزمني', icon: '📋' },
-              { title: 'المهارات المطلوبة', desc: 'التقنيات والأدوات اللازمة', icon: '🎯' },
-              { title: 'تقييم المشروع', desc: 'تحليل SWOT وتقييم الجدوى', icon: '📊' },
-              { title: 'خريطة ذهنية', desc: 'تصور بصري لهيكل المشروع', icon: '🗺️' },
+              { title: 'README Frontend', desc: 'توثيق كامل للواجهة الأمامية', Icon: FileCode },
+              { title: 'README Backend', desc: 'توثيق الخادم الخلفي والـ APIs', Icon: FileCode },
+              { title: 'خطة العمل', desc: 'مراحل التنفيذ والجدول الزمني', Icon: Target },
+              { title: 'المهارات المطلوبة', desc: 'التقنيات والأدوات اللازمة', Icon: Zap },
+              { title: 'تقييم المشروع', desc: 'تحليل SWOT وتقييم الجدوى', Icon: Brain },
+              { title: 'خريطة ذهنية', desc: 'تصور بصري لهيكل المشروع', Icon: Sparkles },
             ].map((item, i) => (
               <div 
                 key={i} 
-                className="bg-white border border-[#E5E5E5] p-6 hover:border-[#002FA7] transition-colors group"
+                className="bg-card border border-border rounded-xl p-5 hover:border-primary/30 hover:shadow-md transition-all duration-300 group"
               >
-                <span className="text-3xl mb-4 block">{item.icon}</span>
-                <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2 group-hover:text-[#002FA7] transition-colors">
-                  {item.title}
-                </h3>
-                <p className="text-[#666666] text-sm">{item.desc}</p>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+                    <item.Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">
+                      {item.title}
+                    </h3>
+                    <p className="text-muted-foreground text-sm">{item.desc}</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -175,38 +194,43 @@ const LandingPage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="bg-[#002FA7] py-20">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <Zap className="w-12 h-12 text-white/80 mx-auto mb-6" />
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
-            جاهز لتحويل فكرتك إلى واقع؟
-          </h2>
-          <p className="text-white/80 text-lg mb-8 max-w-2xl mx-auto">
-            لا تدع أفكارك تضيع. ابدأ الآن وحولها إلى مشاريع منظمة وقابلة للتنفيذ.
-          </p>
-          <Link to="/register">
-            <Button 
-              className="bg-white text-[#002FA7] hover:bg-[#F5F5F5] font-bold px-10 py-6 text-lg rounded-none"
-              data-testid="cta-register-btn"
-            >
-              ابدأ مجاناً الآن
-            </Button>
-          </Link>
+      <section className="py-20">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="bg-gradient-to-br from-primary to-blue-600 rounded-3xl p-12 text-center relative overflow-hidden">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZ2LTRoLTJ2NGgyem0tNiA2aC00djJoNHYtMnptMC02aC00djJoNHYtMnptMC02aC00djJoNHYtMnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
+            <div className="relative">
+              <Zap className="w-12 h-12 text-white/80 mx-auto mb-6" />
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
+                جاهز لتحويل فكرتك إلى واقع؟
+              </h2>
+              <p className="text-white/80 text-lg mb-8 max-w-2xl mx-auto">
+                لا تدع أفكارك تضيع. ابدأ الآن وحولها إلى مشاريع منظمة وقابلة للتنفيذ.
+              </p>
+              <Link to="/register">
+                <Button 
+                  className="bg-white text-primary hover:bg-white/90 font-bold px-10 py-6 text-lg rounded-xl shadow-xl"
+                  data-testid="cta-register-btn"
+                >
+                  ابدأ مجاناً الآن
+                </Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-[#1A1A1A] text-white py-12">
+      <footer className="bg-card border-t border-border py-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-[#002FA7] flex items-center justify-center">
-                <span className="text-white font-black">B</span>
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <span className="text-primary-foreground font-black">B</span>
               </div>
-              <span className="font-bold">BuildMap</span>
+              <span className="font-bold text-foreground">BuildMap</span>
             </div>
-            <p className="text-[#999999] text-sm">
-              © 2025 BuildMap. جميع الحقوق محفوظة.
+            <p className="text-muted-foreground text-sm">
+              جميع الحقوق محفوظة 2025
             </p>
           </div>
         </div>

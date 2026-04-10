@@ -2,6 +2,7 @@ import React from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -15,9 +16,9 @@ const PublicRoute = ({ children }) => {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center" dir="rtl">
-        <div className="flex items-center gap-2 text-[#666666]">
-          <div className="w-5 h-5 border-2 border-[#002FA7] border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
           جاري التحميل...
         </div>
       </div>
@@ -68,9 +69,11 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </div>
   );
