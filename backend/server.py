@@ -1012,7 +1012,7 @@ async def get_ai_suggestions(project_id: str, request: Request):
 
     try:
         # Make AI request using call_provider_api
-        url, headers, body = call_provider_api(
+        url, headers, body = await call_provider_api(
             provider, api_key, project["selected_model"],
             [
                 {"role": "system", "content": "أنت مساعد ذكي متخصص في تحليل المشاريع التقنية. أجب بصيغة JSON فقط."},

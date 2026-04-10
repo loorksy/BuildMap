@@ -405,52 +405,70 @@ const ProjectPage = () => {
         {/* Chat Section */}
         <div className="flex-1 flex flex-col min-w-0 relative">
           
-          {/* Progress Bar */}
+          {/* Progress Bar - Compact on Mobile */}
           {analysis && (
-            <div className="bg-gradient-to-l from-card via-card/80 to-card border-b border-border/50 px-3 sm:px-4 py-2.5 sm:py-3 shrink-0">
+            <div className="bg-card/80 border-b border-border/50 px-3 sm:px-4 py-2 sm:py-3 shrink-0">
               <div className="max-w-3xl mx-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const stageInfo = getStageInfo(analysis.current_stage);
+                {/* Mobile: Compact single-line progress */}
+                <div className="sm:hidden">
+                  <div className="relative h-6 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 right-0 bg-gradient-to-l from-primary to-blue-500 rounded-full transition-all duration-500 ease-out flex items-center justify-start pl-2" 
+                      style={{ width: `${Math.max(analysis.total_progress, 15)}%` }}
+                    >
+                      <span className="text-[10px] font-bold text-white">{Math.round(analysis.total_progress)}%</span>
+                    </div>
+                    {analysis.total_progress < 15 && (
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary">{Math.round(analysis.total_progress)}%</span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Desktop: Full progress with stages */}
+                <div className="hidden sm:block">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const stageInfo = getStageInfo(analysis.current_stage);
+                        const StageIcon = stageInfo.icon;
+                        return (
+                          <>
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <StageIcon className={`w-4 h-4 ${stageInfo.color}`} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-foreground">{stageInfo.name}</p>
+                              <p className="text-[10px] text-muted-foreground">المرحلة الحالية</p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                    <span className="text-lg font-bold text-primary">{Math.round(analysis.total_progress)}%</span>
+                  </div>
+                  
+                  <div className="relative h-2 bg-muted rounded-full overflow-hidden mb-2">
+                    <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-primary to-blue-500 rounded-full transition-all duration-500 ease-out" style={{ width: `${analysis.total_progress}%` }} />
+                  </div>
+                  
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                    {analysis.stages?.slice(0, -1).map((stage) => {
+                      const isCompleted = analysis.completed_stages?.includes(stage.id);
+                      const isCurrent = analysis.current_stage === stage.id;
+                      const stageInfo = getStageInfo(stage.id);
                       const StageIcon = stageInfo.icon;
                       return (
-                        <>
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <StageIcon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${stageInfo.color}`} />
-                          </div>
-                          <div>
-                            <p className="text-[10px] sm:text-xs font-medium text-foreground">{stageInfo.name}</p>
-                            <p className="text-[9px] sm:text-[10px] text-muted-foreground">المرحلة الحالية</p>
-                          </div>
-                        </>
+                        <div key={stage.id} className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium whitespace-nowrap transition-all ${
+                          isCompleted ? 'bg-green-500/15 text-green-600 dark:text-green-400' 
+                          : isCurrent ? 'bg-primary/15 text-primary border border-primary/30' 
+                          : 'bg-muted/50 text-muted-foreground'
+                        }`}>
+                          {isCompleted ? <CheckCircle2 className="w-2.5 h-2.5" /> : isCurrent ? <StageIcon className="w-2.5 h-2.5 animate-pulse" /> : <div className="w-2.5 h-2.5 rounded-full border border-current opacity-50" />}
+                          {stage.name}
+                        </div>
                       );
-                    })()}
+                    })}
                   </div>
-                  <span className="text-base sm:text-lg font-bold text-primary">{Math.round(analysis.total_progress)}%</span>
-                </div>
-                
-                <div className="relative h-2 bg-muted rounded-full overflow-hidden mb-2">
-                  <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-primary to-blue-500 rounded-full transition-all duration-500 ease-out" style={{ width: `${analysis.total_progress}%` }} />
-                </div>
-                
-                <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                  {analysis.stages?.slice(0, -1).map((stage) => {
-                    const isCompleted = analysis.completed_stages?.includes(stage.id);
-                    const isCurrent = analysis.current_stage === stage.id;
-                    const stageInfo = getStageInfo(stage.id);
-                    const StageIcon = stageInfo.icon;
-                    return (
-                      <div key={stage.id} className={`flex items-center gap-1 px-2 py-1 rounded-md text-[9px] sm:text-[10px] font-medium whitespace-nowrap transition-all ${
-                        isCompleted ? 'bg-green-500/15 text-green-600 dark:text-green-400' 
-                        : isCurrent ? 'bg-primary/15 text-primary border border-primary/30' 
-                        : 'bg-muted/50 text-muted-foreground'
-                      }`}>
-                        {isCompleted ? <CheckCircle2 className="w-2.5 h-2.5" /> : isCurrent ? <StageIcon className="w-2.5 h-2.5 animate-pulse" /> : <div className="w-2.5 h-2.5 rounded-full border border-current opacity-50" />}
-                        <span className="hidden sm:inline">{stage.name}</span>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             </div>
