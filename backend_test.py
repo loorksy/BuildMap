@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 
 class BuildMapAPITester:
-    def __init__(self, base_url="https://buildmap-ideas.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://ui-redesign-60.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.session = requests.Session()  # Use session to maintain cookies
         self.tests_run = 0

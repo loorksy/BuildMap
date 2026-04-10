@@ -1741,7 +1741,7 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["https://buildmap-ideas.preview.emergentagent.com", "http://localhost:3000"],
+    allow_origins=["https://ui-redesign-60.preview.emergentagent.com", "http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
