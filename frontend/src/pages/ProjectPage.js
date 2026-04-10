@@ -54,7 +54,12 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
-  Cpu
+  Cpu,
+  FolderArchive,
+  Shield,
+  BookOpen,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
@@ -109,6 +114,7 @@ const ProjectPage = () => {
   const [analysis, setAnalysis] = useState(null);
   const [showPreview, setShowPreview] = useState(true);
   const [previewFile, setPreviewFile] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchProjectData();
@@ -248,6 +254,27 @@ const ProjectPage = () => {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportZip = async () => {
+    setExporting(true);
+    try {
+      const response = await axios.get(`${API}/projects/${projectId}/export`, {
+        responseType: 'blob'
+      });
+      const url = URL.createObjectURL(response.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `BuildMap_${project?.title || 'project'}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('تم تحميل الملفات بنجاح!');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error(error.response?.data?.detail || 'حدث خطأ في تصدير الملفات');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const renderMarkdown = (content) => {
@@ -543,12 +570,24 @@ const ProjectPage = () => {
                   <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
                     {analysis.project_summary.type}
                   </Badge>
+                  {analysis.complexity?.level_ar && (
+                    <Badge variant="outline" className="text-xs">
+                      {analysis.complexity.level_ar}
+                    </Badge>
+                  )}
                 </div>
                 
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">الفكرة:</p>
                   <p className="text-sm text-foreground">{analysis.project_summary.idea_summary}</p>
                 </div>
+                
+                {analysis.complexity?.estimated_time && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    <span>الوقت المقدر: {analysis.complexity.estimated_time}</span>
+                  </div>
+                )}
                 
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">الميزات المكتشفة:</p>
@@ -573,6 +612,47 @@ const ProjectPage = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Skills */}
+                {analysis.suggested_skills?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                      <BookOpen className="w-3 h-3" />
+                      المهارات المقترحة:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {analysis.suggested_skills.map((s, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">
+                          {s.name_ar}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Verification */}
+                {analysis.verification?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                      <Shield className="w-3 h-3" />
+                      التحقق:
+                    </p>
+                    <div className="space-y-1">
+                      {analysis.verification.map((v, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs">
+                          {v.passed ? (
+                            <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
+                          ) : (
+                            <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+                          )}
+                          <span className={v.passed ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
+                            {v.message}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -580,11 +660,22 @@ const ProjectPage = () => {
           {/* Files Preview */}
           {outputs && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-border">
+              <div className="p-4 border-b border-border flex items-center justify-between">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
                   <FileText className="w-4 h-4" />
                   معاينة الملفات
                 </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportZip}
+                  disabled={exporting}
+                  className="h-7 text-xs rounded-lg gap-1"
+                  data-testid="export-zip-btn"
+                >
+                  {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderArchive className="w-3 h-3" />}
+                  {exporting ? 'جاري...' : 'تصدير ZIP'}
+                </Button>
               </div>
               
               <div className="p-2 border-b border-border">

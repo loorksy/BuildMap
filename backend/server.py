@@ -21,6 +21,10 @@ import hashlib
 import secrets
 import json
 import re
+import io
+import zipfile
+from fastapi.responses import StreamingResponse
+from ai_system import full_analysis as ai_full_analysis, AdvancedNLP, SKILLS_LIBRARY, AGENTS, AgentRole
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -670,8 +674,31 @@ async def get_conversation_analysis(project_id: str, request: Request):
         {"_id": 0, "role": 1, "content": 1}
     ).to_list(100)
     
-    # Analyze conversation
+    # Basic conversation analysis
     analysis = analyze_conversation_progress(messages, project["idea"])
+    
+    # Advanced AI analysis
+    ai_analysis = ai_full_analysis(messages, project["idea"])
+    
+    # Merge NLP features into project summary
+    if ai_analysis.get("features"):
+        nlp_features = [f["text"] for f in ai_analysis["features"]]
+        existing = analysis["project_summary"].get("features", [])
+        merged = list(dict.fromkeys(nlp_features + existing))[:8]
+        analysis["project_summary"]["features"] = merged
+    
+    if ai_analysis.get("technologies"):
+        nlp_tech = [t["name"] for t in ai_analysis["technologies"]]
+        existing = analysis["project_summary"].get("technologies", [])
+        merged = list(dict.fromkeys(nlp_tech + existing))[:8]
+        analysis["project_summary"]["technologies"] = merged
+    
+    # Add advanced data
+    analysis["project_summary"]["type"] = ai_analysis.get("project_type", {}).get("name_ar", analysis["project_summary"]["type"])
+    analysis["complexity"] = ai_analysis.get("complexity", {})
+    analysis["suggested_skills"] = ai_analysis.get("suggested_skills", [])
+    analysis["verification"] = ai_analysis.get("verification", [])
+    analysis["user_type"] = ai_analysis.get("user_type", {})
     
     # Get smart suggestions
     suggestions = get_smart_suggestions(analysis["current_stage"], " ".join([m["content"] for m in messages]))
@@ -751,6 +778,39 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
     ).to_list(100)
     analysis = analyze_conversation_progress(all_messages, project["idea"])
     
+    # Advanced AI analysis for enhanced prompting
+    ai_analysis = ai_full_analysis(all_messages, project["idea"])
+    
+    # Pick agent role based on current stage
+    stage_agent_map = {
+        "idea": AgentRole.PLANNER,
+        "audience": AgentRole.PLANNER,
+        "problem": AgentRole.EVALUATOR,
+        "features": AgentRole.ARCHITECT,
+        "technical": AgentRole.ARCHITECT,
+        "ready": AgentRole.REVIEWER
+    }
+    active_agent = AGENTS.get(stage_agent_map.get(analysis["current_stage"], AgentRole.PLANNER))
+    
+    # Build skills context
+    skills_context = ""
+    if ai_analysis.get("suggested_skills"):
+        skill_names = [s["name_ar"] for s in ai_analysis["suggested_skills"][:3]]
+        skills_context = f"\nالمهارات المقترحة للمشروع: {', '.join(skill_names)}"
+    
+    # Build complexity context
+    complexity_context = ""
+    if ai_analysis.get("complexity"):
+        c = ai_analysis["complexity"]
+        complexity_context = f"\nتعقيد المشروع: {c.get('level_ar', '')} | الوقت المقدر: {c.get('estimated_time', '')}"
+    
+    # Build verification context
+    verification_context = ""
+    if ai_analysis.get("verification"):
+        failed = [v for v in ai_analysis["verification"] if not v.get("passed")]
+        if failed:
+            verification_context = "\nملاحظات التحقق: " + " | ".join([v["message"] for v in failed])
+    
     # Build smart system prompt based on stage
     stage_prompts = {
         "idea": "ركز على فهم نوع المشروع والرؤية العامة. اسأل عن نوع التطبيق وما يميزه.",
@@ -765,6 +825,10 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
     
     system_prompt = f"""أنت مساعد ذكي في منصة BuildMap متخصص في تحويل الأفكار إلى مشاريع تقنية.
 
+دورك الحالي: {active_agent.name_ar} - {active_agent.description}
+
+{active_agent.system_prompt}
+
 أسلوبك:
 - محادثة طبيعية وودية
 - أسئلة ذكية ومحددة (سؤال أو اثنين في كل رد)
@@ -776,6 +840,9 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
 التقدم: {analysis["total_progress"]:.0f}%
 
 {current_stage_prompt}
+{skills_context}
+{complexity_context}
+{verification_context}
 
 عندما تشعر أن المعلومات كافية (تقدم 70% أو أكثر)، أخبر المستخدم أنه يمكنه توليد المخرجات الآن وأضف:
 [READY_TO_GENERATE]
@@ -881,10 +948,25 @@ async def generate_outputs(project_id: str, request: Request):
     
     conversation_text = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
     
+    # Get advanced analysis for richer context
+    ai_analysis = ai_full_analysis(messages, project["idea"])
+    project_type = ai_analysis.get("project_type", {}).get("name_ar", "غير محدد")
+    complexity = ai_analysis.get("complexity", {}).get("level_ar", "متوسط")
+    features_list = ", ".join([f["text"] for f in ai_analysis.get("features", [])[:6]])
+    tech_list = ", ".join([t["name"] for t in ai_analysis.get("technologies", [])])
+    
+    analysis_context = f"""
+معلومات التحليل:
+- نوع المشروع: {project_type}
+- التعقيد: {complexity}
+- الميزات: {features_list or 'لم يتم تحديدها'}
+- التقنيات: {tech_list or 'لم يتم تحديدها'}
+"""
+    
     outputs = {}
     
     output_prompts = {
-        "frontend_readme": """بناءً على المحادثة، أنشئ ملف README-Frontend.md احترافي يتضمن:
+        "frontend_readme": """بناءً على المحادثة والتحليل، أنشئ ملف README-Frontend.md احترافي يتضمن:
 # اسم المشروع - Frontend
 
 ## نظرة عامة
@@ -894,12 +976,14 @@ async def generate_outputs(project_id: str, request: Request):
 ## تعليمات التشغيل
 ## المتغيرات البيئية
 
+{analysis_context}
+
 المحادثة:
 {conversation}
 
 اكتب بتنسيق Markdown احترافي.""",
         
-        "backend_readme": """بناءً على المحادثة، أنشئ ملف README-Backend.md احترافي يتضمن:
+        "backend_readme": """بناءً على المحادثة والتحليل، أنشئ ملف README-Backend.md احترافي يتضمن:
 # اسم المشروع - Backend
 
 ## نظرة عامة
@@ -909,12 +993,14 @@ async def generate_outputs(project_id: str, request: Request):
 ## تعليمات التشغيل
 ## المتغيرات البيئية
 
+{analysis_context}
+
 المحادثة:
 {conversation}
 
 اكتب بتنسيق Markdown احترافي.""",
         
-        "plan": """بناءً على المحادثة، أنشئ خطة عمل مفصلة:
+        "plan": """بناءً على المحادثة والتحليل، أنشئ خطة عمل مفصلة:
 # خطة تنفيذ المشروع
 
 ## المرحلة 1: الإعداد
@@ -925,10 +1011,12 @@ async def generate_outputs(project_id: str, request: Request):
 
 لكل مرحلة: المهام، المدة المقدرة، المخرجات
 
+{analysis_context}
+
 المحادثة:
 {conversation}""",
         
-        "skills": """بناءً على المحادثة، حدد المهارات المطلوبة:
+        "skills": """بناءً على المحادثة والتحليل، حدد المهارات المطلوبة:
 # المهارات والموارد التعليمية
 
 ## المهارات التقنية المطلوبة
@@ -937,10 +1025,12 @@ async def generate_outputs(project_id: str, request: Request):
 ## الأدوات والبرمجيات
 ## نصائح للتعلم
 
+{analysis_context}
+
 المحادثة:
 {conversation}""",
         
-        "evaluation": """بناءً على المحادثة، قدم تقييم SWOT:
+        "evaluation": """بناءً على المحادثة والتحليل، قدم تقييم SWOT:
 # تقييم المشروع
 
 ## نقاط القوة
@@ -950,18 +1040,22 @@ async def generate_outputs(project_id: str, request: Request):
 ## التوصيات
 ## تقييم الجدوى: X/10
 
+{analysis_context}
+
 المحادثة:
 {conversation}""",
         
-        "mindmap": """بناءً على المحادثة، أنشئ خريطة ذهنية JSON:
-{
+        "mindmap": """بناءً على المحادثة والتحليل، أنشئ خريطة ذهنية JSON:
+{{
   "title": "اسم المشروع",
   "children": [
-    {"title": "الميزات", "children": [...]},
-    {"title": "التقنيات", "children": [...]},
-    {"title": "المراحل", "children": [...]}
+    {{"title": "الميزات", "children": [...]}},
+    {{"title": "التقنيات", "children": [...]}},
+    {{"title": "المراحل", "children": [...]}}
   ]
-}
+}}
+
+{analysis_context}
 
 المحادثة:
 {conversation}
@@ -980,7 +1074,7 @@ async def generate_outputs(project_id: str, request: Request):
                     },
                     json={
                         "model": project["selected_model"],
-                        "messages": [{"role": "user", "content": prompt.format(conversation=conversation_text)}],
+                        "messages": [{"role": "user", "content": prompt.format(conversation=conversation_text, analysis_context=analysis_context)}],
                         "max_tokens": 3000,
                         "temperature": 0.5
                     }
@@ -1032,6 +1126,105 @@ async def get_outputs(project_id: str, request: Request):
         raise HTTPException(status_code=404, detail=get_error_message("outputs_not_found"))
     
     return output
+
+# ==================== ZIP EXPORT ====================
+
+@api_router.get("/projects/{project_id}/export")
+async def export_project_zip(project_id: str, request: Request):
+    """Export all project outputs as a ZIP file"""
+    user = await get_current_user(request)
+    
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
+    if not project:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
+    output = await db.outputs.find_one({"project_id": project_id}, {"_id": 0})
+    if not output:
+        raise HTTPException(status_code=404, detail=get_error_message("outputs_not_found"))
+    
+    # Get conversation for context
+    messages = await db.messages.find(
+        {"project_id": project_id},
+        {"_id": 0, "role": 1, "content": 1, "created_at": 1}
+    ).sort("created_at", 1).to_list(1000)
+    
+    # Advanced analysis
+    ai_analysis = ai_full_analysis(messages, project["idea"])
+    
+    # Build ZIP in memory
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Output files
+        file_map = {
+            "README-Frontend.md": output.get("frontend_readme", ""),
+            "README-Backend.md": output.get("backend_readme", ""),
+            "Plan.md": output.get("plan", ""),
+            "Skills.md": output.get("skills", ""),
+            "Evaluation.md": output.get("evaluation", ""),
+            "MindMap.json": output.get("mindmap", ""),
+        }
+        
+        for filename, content in file_map.items():
+            if content:
+                zf.writestr(filename, content)
+        
+        # Add conversation log
+        conversation_lines = []
+        for msg in messages:
+            role = "المستخدم" if msg["role"] == "user" else "المساعد"
+            conversation_lines.append(f"## {role}\n{msg['content']}\n")
+        if conversation_lines:
+            zf.writestr("Conversation.md", f"# سجل المحادثة\n\n" + "\n---\n\n".join(conversation_lines))
+        
+        # Add analysis summary
+        analysis_md = f"""# تحليل المشروع - {project['title']}
+
+## نوع المشروع
+{ai_analysis.get('project_type', {}).get('name_ar', 'غير محدد')}
+
+## التعقيد
+- المستوى: {ai_analysis.get('complexity', {}).get('level_ar', 'غير محدد')}
+- الوقت المقدر: {ai_analysis.get('complexity', {}).get('estimated_time', 'غير محدد')}
+- حجم الفريق المقترح: {ai_analysis.get('complexity', {}).get('team_size', 1)}
+
+## الميزات المكتشفة
+"""
+        for f in ai_analysis.get("features", []):
+            analysis_md += f"- {f['text']} (ثقة: {f['confidence']:.0%})\n"
+        
+        analysis_md += "\n## التقنيات المكتشفة\n"
+        for t in ai_analysis.get("technologies", []):
+            analysis_md += f"- {t['name']}\n"
+        
+        analysis_md += "\n## المهارات المقترحة\n"
+        for s in ai_analysis.get("suggested_skills", []):
+            skill = SKILLS_LIBRARY.get(s["id"])
+            if skill:
+                analysis_md += f"\n### {s['name_ar']}\n"
+                for step in skill["steps"]:
+                    analysis_md += f"- {step}\n"
+        
+        analysis_md += "\n## نتائج التحقق\n"
+        for v in ai_analysis.get("verification", []):
+            status = "نجح" if v["passed"] else "يحتاج تحسين"
+            analysis_md += f"- {v['message']} ({status})\n"
+        
+        zf.writestr("Analysis.md", analysis_md)
+    
+    buffer.seek(0)
+    
+    safe_title = re.sub(r'[^\w\s-]', '', project["title"]).strip().replace(' ', '_')
+    filename = f"BuildMap_{safe_title}.zip"
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 # ==================== ROOT ====================
 
