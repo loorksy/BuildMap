@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { Button } from './ui/button';
 import axios from 'axios';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -25,7 +26,7 @@ const NotificationBell = () => {
       setUnreadCount(response.data.unread_count || 0);
     } catch (error) {
       // Silent fail - user might not be logged in
-      console.error('Error fetching notifications:', error);
+      logger.debug('Notification fetch failed', error);
     }
   };
 

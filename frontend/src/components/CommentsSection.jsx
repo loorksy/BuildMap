@@ -6,6 +6,7 @@ import { MessageCircle, Filter } from 'lucide-react';
 import { Button } from './ui/button';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -17,6 +18,7 @@ const CommentsSection = ({ projectId }) => {
 
   useEffect(() => {
     fetchComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, sortBy]);
 
   const fetchComments = async () => {
@@ -31,7 +33,7 @@ const CommentsSection = ({ projectId }) => {
       
       setComments(fetchedComments);
     } catch (error) {
-      console.error('Error fetching comments:', error);
+      logger.error('Error fetching comments:', error);
     } finally {
       setLoading(false);
     }
@@ -62,8 +64,8 @@ const CommentsSection = ({ projectId }) => {
   if (loading) {
     return (
       <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="animate-pulse">
+        {[1, 2, 3].map((skeletonId) => (
+          <div key={`comment-skeleton-${skeletonId}`} className="animate-pulse">
             <div className="flex gap-3">
               <div className="w-10 h-10 bg-muted rounded-full"></div>
               <div className="flex-1">

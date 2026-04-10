@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import ProjectCard from '../components/ProjectCard';
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -73,6 +75,7 @@ const ExplorePage = () => {
   // Fetch projects
   useEffect(() => {
     fetchProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, selectedTech, selectedStatus, sortBy, page]);
 
   const fetchProjects = async () => {
@@ -99,7 +102,7 @@ const ExplorePage = () => {
       
       setHasMore((response.data.projects || []).length === 20);
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      logger.error('Error fetching projects:', error);
       toast.error('حدث خطأ أثناء جلب المشاريع');
       setProjects([]);
     } finally {
@@ -331,8 +334,8 @@ const ExplorePage = () => {
         {/* Projects Grid */}
         {loading && page === 1 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-5 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((skeletonId) => (
+              <div key={`skeleton-${skeletonId}`} className="bg-card border border-border rounded-lg p-5 animate-pulse">
                 <div className="h-5 bg-muted rounded w-3/4 mb-3"></div>
                 <div className="h-3 bg-muted rounded w-full mb-2"></div>
                 <div className="h-3 bg-muted rounded w-5/6 mb-4"></div>

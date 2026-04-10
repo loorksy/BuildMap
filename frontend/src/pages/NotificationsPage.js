@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Sun, Moon, Bell, Check, Trash2, UserPlus, MessageCircle, Bookmark, TrendingUp } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -26,6 +27,7 @@ const NotificationsPage = () => {
 
   useEffect(() => {
     fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchNotifications = async () => {
@@ -34,7 +36,7 @@ const NotificationsPage = () => {
       setNotifications(response.data.notifications || []);
       setUnreadCount(response.data.unread_count || 0);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      logger.error('Error fetching notifications:', error);
       if (error.response?.status === 401) {
         navigate('/login');
       }
@@ -62,7 +64,7 @@ const NotificationsPage = () => {
       ));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error marking as read:', error);
+      logger.error('Error marking as read:', error);
     }
   };
 
@@ -144,8 +146,8 @@ const NotificationsPage = () => {
 
         {loading ? (
           <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-4 animate-pulse">
+            {[1, 2, 3, 4, 5].map((skeletonId) => (
+              <div key={`notif-skeleton-${skeletonId}`} className="bg-card border border-border rounded-lg p-4 animate-pulse">
                 <div className="flex gap-3">
                   <div className="w-10 h-10 bg-muted rounded-full"></div>
                   <div className="flex-1">

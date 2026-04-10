@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -38,7 +39,7 @@ const ReactionBar = ({ commentId, reactions = {} }) => {
         [reactionType]: (prev[reactionType] || 0) + 1
       }));
     } catch (error) {
-      console.error('Error adding reaction:', error);
+      logger.error('Error adding reaction:', error);
       toast.error('حدث خطأ');
     } finally {
       setLoading(null);

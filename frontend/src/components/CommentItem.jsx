@@ -7,6 +7,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 

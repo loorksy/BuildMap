@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -53,6 +54,7 @@ const UserProfilePage = () => {
     if (currentUser && !isOwnProfile) {
       checkIfFollowing();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const fetchUserProfile = async () => {
@@ -72,7 +74,7 @@ const UserProfilePage = () => {
       const response = await axios.get(`${API}/users/${userId}/projects`);
       setProjects(response.data.projects || []);
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      logger.error('Error fetching projects:', error);
     }
   };
 
@@ -81,7 +83,7 @@ const UserProfilePage = () => {
       const response = await axios.get(`${API}/users/${userId}/is-following`, { withCredentials: true });
       setIsFollowing(response.data.is_following);
     } catch (error) {
-      console.error('Error checking follow status:', error);
+      logger.error('Error checking follow status:', error);
     }
   };
 

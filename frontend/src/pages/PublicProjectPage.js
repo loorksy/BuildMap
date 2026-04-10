@@ -8,6 +8,7 @@ import CommentsSection from '../components/CommentsSection';
 import { Sun, Moon, ArrowRight, Eye, MessageCircle, Bookmark } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -19,6 +20,7 @@ const PublicProjectPage = () => {
 
   useEffect(() => {
     fetchProject();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const fetchProject = async () => {
@@ -26,7 +28,7 @@ const PublicProjectPage = () => {
       const response = await axios.get(`${API}/projects/${projectId}/public`);
       setProject(response.data);
     } catch (error) {
-      console.error('Error fetching project:', error);
+      logger.error('Error fetching project:', error);
       toast.error('حدث خطأ أثناء جلب المشروع');
     } finally {
       setLoading(false);

@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Send } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -51,7 +52,7 @@ const CommentForm = ({
       setContent('');
       setType('comment');
     } catch (error) {
-      console.error('Error submitting comment:', error);
+      logger.error('Error submitting comment:', error);
       toast.error(error.response?.data?.detail || 'حدث خطأ أثناء إضافة التعليق');
     } finally {
       setSubmitting(false);
