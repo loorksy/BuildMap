@@ -112,6 +112,7 @@ const ProjectPage = () => {
   const { theme, toggleTheme } = useTheme();
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const suggestionsRef = useRef(null);
 
   const [project, setProject] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -157,7 +158,6 @@ const ProjectPage = () => {
         setOutputs(outputsRes.data);
       } catch (e) {}
       
-      // Fetch AI suggestions
       fetchSuggestions();
       
     } catch (error) {
@@ -222,7 +222,6 @@ const ProjectPage = () => {
               setMessages(prev => prev.map(m => m.id === streamingMsgId ? { ...m, id: event.id, created_at: event.created_at, isStreaming: false } : m));
               if (event.analysis) setAnalysis(event.analysis);
               if (event.ready_to_generate) toast.success('المشروع جاهز لتوليد المخرجات!');
-              // Refresh suggestions after each message
               fetchSuggestions();
             } else if (event.type === 'error') {
               toast.error(event.content);
@@ -364,7 +363,7 @@ const ProjectPage = () => {
       <Toaster position="top-center" richColors />
       
       {/* Header */}
-      <header className="glass border-b border-border/50 sticky top-0 z-50 shrink-0">
+      <header className="glass border-b border-border/50 shrink-0 z-50">
         <div className="max-w-full mx-auto px-3 sm:px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors-smooth p-1.5 hover:bg-muted rounded-md">
@@ -404,7 +403,7 @@ const ProjectPage = () => {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Chat Section */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 relative">
           
           {/* Progress Bar */}
           {analysis && (
@@ -457,8 +456,8 @@ const ProjectPage = () => {
             </div>
           )}
 
-          {/* Messages Area - Scrollable */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Messages Area - Scrollable with padding for fixed input */}
+          <div className="flex-1 overflow-y-auto pb-44">
             <div className="max-w-3xl mx-auto p-3 sm:p-4 space-y-3">
               {messages.length === 0 && (
                 <div className="text-center py-10 sm:py-14 animate-fade-in">
@@ -496,22 +495,19 @@ const ProjectPage = () => {
             </div>
           </div>
 
-          {/* Fixed Bottom Section */}
-          <div className="shrink-0 border-t border-border/50 bg-background">
+          {/* Fixed Bottom Input Area - Like WhatsApp/Emergent */}
+          <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border/50">
             {/* Generate Button */}
             {(analysis?.ready_to_generate || analysis?.total_progress >= 60 || outputs) && !generating && (
-              <div className="p-2.5 bg-gradient-to-r from-primary/10 via-primary/5 to-blue-500/10 border-b border-border/50">
+              <div className="px-3 sm:px-4 py-2 bg-gradient-to-r from-primary/10 via-primary/5 to-blue-500/10 border-b border-border/50">
                 <div className="max-w-3xl mx-auto flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center animate-bounce-soft">
-                      <Sparkles className="w-4 h-4 text-primary" />
+                    <div className="w-7 h-7 bg-primary/20 rounded-lg flex items-center justify-center">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
                     </div>
-                    <div>
-                      <span className="font-medium text-foreground text-xs block">{outputs ? 'المخرجات جاهزة' : 'جاهز للتوليد!'}</span>
-                      <span className="text-[10px] text-muted-foreground">{outputs ? 'يمكنك إعادة التوليد' : '6 ملفات احترافية'}</span>
-                    </div>
+                    <span className="font-medium text-foreground text-xs">{outputs ? 'المخرجات جاهزة' : 'جاهز للتوليد!'}</span>
                   </div>
-                  <Button size="sm" onClick={handleGenerateOutputs} className="btn-primary rounded-lg shadow-glow h-8 text-xs" data-testid="generate-outputs-btn">
+                  <Button size="sm" onClick={handleGenerateOutputs} className="btn-primary rounded-lg h-7 text-[10px]" data-testid="generate-outputs-btn">
                     <Sparkles className="w-3 h-3 ml-1" />
                     {outputs ? 'إعادة' : 'توليد'}
                   </Button>
@@ -520,10 +516,10 @@ const ProjectPage = () => {
             )}
 
             {generating && (
-              <div className="p-2.5 bg-primary border-b border-primary">
+              <div className="px-3 sm:px-4 py-2 bg-primary">
                 <div className="max-w-3xl mx-auto flex items-center justify-center gap-2 text-primary-foreground">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span className="text-xs font-medium">جاري التوليد...</span>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="text-[10px] font-medium">جاري التوليد...</span>
                 </div>
               </div>
             )}
@@ -550,7 +546,7 @@ const ProjectPage = () => {
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleSendSuggestion} className="btn-primary rounded-lg h-8 text-xs flex-1" disabled={sending}>
                       <Send className="w-3 h-3 ml-1" />
-                      إرسال الاقتراح
+                      إرسال
                     </Button>
                     <Button size="sm" variant="outline" onClick={handleCancelSuggestion} className="rounded-lg h-8 text-xs">
                       إلغاء
@@ -560,58 +556,54 @@ const ProjectPage = () => {
               </div>
             )}
 
-            {/* AI-Generated Suggestions */}
+            {/* AI Suggestions - Horizontal Scrollable Cards */}
             {!selectedSuggestion && !sending && !generating && (
-              <div className="px-3 sm:px-4 py-2.5 bg-muted/30 border-b border-border/50">
-                <div className="max-w-3xl mx-auto">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-3 h-3 text-primary" />
-                      <p className="text-[9px] sm:text-[10px] text-muted-foreground font-medium">اقتراحات ذكية للمشروع:</p>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={fetchSuggestions} 
-                      disabled={loadingSuggestions}
-                      className="h-5 w-5 p-0 rounded-md"
-                    >
+              <div className="py-2 border-b border-border/50">
+                <div className="max-w-3xl mx-auto px-3 sm:px-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-3 h-3 text-primary shrink-0" />
+                    <p className="text-[10px] text-muted-foreground font-medium">اقتراحات ذكية</p>
+                    <Button variant="ghost" size="sm" onClick={fetchSuggestions} disabled={loadingSuggestions} className="h-5 w-5 p-0 rounded-md mr-auto">
                       <RefreshCw className={`w-3 h-3 ${loadingSuggestions ? 'animate-spin' : ''}`} />
                     </Button>
                   </div>
-                  
-                  {loadingSuggestions ? (
-                    <div className="flex items-center justify-center py-3">
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground mr-2">جاري تحليل المشروع...</span>
-                    </div>
-                  ) : suggestions.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {suggestions.slice(0, 6).map((suggestion, idx) => {
-                        const Icon = getIcon(suggestion.icon);
-                        return (
-                          <Button
-                            key={idx}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSuggestionClick(suggestion)}
-                            className="rounded-full text-[10px] sm:text-xs h-7 px-2.5 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
-                          >
-                            <Icon className="w-3 h-3 ml-1" />
-                            {suggestion.label}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground text-center py-2">لا توجد اقتراحات متاحة حالياً</p>
-                  )}
                 </div>
+                
+                {loadingSuggestions ? (
+                  <div className="flex items-center justify-center py-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground mr-2">جاري التحليل...</span>
+                  </div>
+                ) : suggestions.length > 0 ? (
+                  <div 
+                    ref={suggestionsRef}
+                    className="flex gap-2 overflow-x-auto no-scrollbar px-3 sm:px-4 pb-1"
+                    style={{ scrollBehavior: 'smooth' }}
+                  >
+                    {suggestions.map((suggestion, idx) => {
+                      const Icon = getIcon(suggestion.icon);
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className="flex items-center gap-2 px-3 py-2 bg-card hover:bg-primary/5 border border-border hover:border-primary/30 rounded-xl transition-all shrink-0 group"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center transition-colors">
+                            <Icon className="w-3.5 h-3.5 text-primary" />
+                          </div>
+                          <span className="text-xs font-medium text-foreground whitespace-nowrap">{suggestion.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground text-center py-2 px-4">لا توجد اقتراحات</p>
+                )}
               </div>
             )}
 
-            {/* Input Area - Always Fixed */}
-            <div className="p-3 sm:p-4 bg-background">
+            {/* Input Area */}
+            <div className="p-3 sm:p-4">
               <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
                 <div className="flex gap-2 items-center">
                   <Input
@@ -619,12 +611,17 @@ const ProjectPage = () => {
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     placeholder="اكتب رسالتك..."
-                    className="flex-1 h-9 sm:h-10 pr-3 pl-10 rounded-lg border-border input-enhanced text-xs sm:text-sm"
+                    className="flex-1 h-10 sm:h-11 pr-4 pl-4 rounded-xl border-border bg-card input-enhanced text-sm"
                     disabled={sending || generating || selectedSuggestion}
                     data-testid="chat-input"
                   />
-                  <Button type="submit" disabled={!messageInput.trim() || sending || generating || selectedSuggestion} className="h-9 sm:h-10 w-9 sm:w-10 btn-primary rounded-lg shrink-0" data-testid="send-message-btn">
-                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  <Button 
+                    type="submit" 
+                    disabled={!messageInput.trim() || sending || generating || selectedSuggestion} 
+                    className="h-10 sm:h-11 w-10 sm:w-11 btn-primary rounded-xl shrink-0" 
+                    data-testid="send-message-btn"
+                  >
+                    {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   </Button>
                 </div>
               </form>
