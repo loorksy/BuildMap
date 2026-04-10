@@ -60,7 +60,14 @@ import {
   Shield,
   BookOpen,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Lightbulb,
+  Target,
+  Palette,
+  Rocket,
+  Settings,
+  PanelRight,
+  PanelRightClose
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
@@ -89,7 +96,62 @@ const iconMap = {
   'terminal': Terminal,
   'triangle': Triangle,
   'sparkles': Sparkles,
-  'plus': Plus
+  'plus': Plus,
+  'lightbulb': Lightbulb,
+  'target': Target,
+  'palette': Palette,
+  'rocket': Rocket,
+  'settings': Settings
+};
+
+// Stage-based suggestions
+const stageSuggestions = {
+  'idea_understanding': [
+    { text: 'تطبيق ويب', icon: 'globe' },
+    { text: 'تطبيق موبايل', icon: 'smartphone' },
+    { text: 'منصة تجارة إلكترونية', icon: 'shopping-cart' },
+    { text: 'نظام إدارة', icon: 'layout-dashboard' },
+    { text: 'شبكة اجتماعية', icon: 'users' },
+  ],
+  'target_audience': [
+    { text: 'أفراد', icon: 'users' },
+    { text: 'شركات صغيرة', icon: 'building' },
+    { text: 'مؤسسات كبيرة', icon: 'building' },
+    { text: 'طلاب', icon: 'users' },
+    { text: 'مطورين', icon: 'code' },
+  ],
+  'features': [
+    { text: 'نظام تسجيل دخول', icon: 'log-in' },
+    { text: 'لوحة تحكم', icon: 'layout-dashboard' },
+    { text: 'إشعارات', icon: 'bell' },
+    { text: 'بحث متقدم', icon: 'search' },
+    { text: 'دردشة', icon: 'message-circle' },
+    { text: 'تحليلات', icon: 'bar-chart' },
+  ],
+  'technical': [
+    { text: 'React', icon: 'code' },
+    { text: 'Node.js', icon: 'server' },
+    { text: 'قاعدة بيانات', icon: 'database' },
+    { text: 'API', icon: 'terminal' },
+    { text: 'تكامل خارجي', icon: 'layers' },
+  ],
+  'design': [
+    { text: 'تصميم بسيط', icon: 'palette' },
+    { text: 'وضع داكن', icon: 'palette' },
+    { text: 'تصميم عصري', icon: 'sparkles' },
+    { text: 'واجهة عربية', icon: 'globe' },
+  ],
+  'timeline': [
+    { text: 'أسبوع', icon: 'clock' },
+    { text: 'شهر', icon: 'clock' },
+    { text: '3 أشهر', icon: 'clock' },
+    { text: 'MVP سريع', icon: 'rocket' },
+  ],
+  'default': [
+    { text: 'أكمل الفكرة', icon: 'lightbulb' },
+    { text: 'أضف ميزة', icon: 'plus' },
+    { text: 'حدد الهدف', icon: 'target' },
+  ]
 };
 
 const ProjectPage = () => {
@@ -99,6 +161,7 @@ const ProjectPage = () => {
   const { theme, toggleTheme } = useTheme();
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
   const [project, setProject] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -116,6 +179,7 @@ const ProjectPage = () => {
   const [showPreview, setShowPreview] = useState(true);
   const [previewFile, setPreviewFile] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
 
   useEffect(() => {
     fetchProjectData();
@@ -359,6 +423,30 @@ const ProjectPage = () => {
     return <InteractiveMindMap data={data} />;
   };
 
+  // Get current stage suggestions
+  const getCurrentStageSuggestions = () => {
+    if (analysis?.suggestions && analysis.suggestions.length > 0) {
+      return analysis.suggestions;
+    }
+    
+    const currentStage = analysis?.current_stage || 'default';
+    return stageSuggestions[currentStage] || stageSuggestions['default'];
+  };
+
+  // Get stage info
+  const getStageInfo = (stageId) => {
+    const stageNames = {
+      'idea_understanding': { name: 'فهم الفكرة', icon: Lightbulb, color: 'text-yellow-500' },
+      'target_audience': { name: 'الجمهور المستهدف', icon: Users, color: 'text-blue-500' },
+      'features': { name: 'الميزات', icon: Layers, color: 'text-purple-500' },
+      'technical': { name: 'المتطلبات التقنية', icon: Code, color: 'text-green-500' },
+      'design': { name: 'التصميم', icon: Palette, color: 'text-pink-500' },
+      'timeline': { name: 'الجدول الزمني', icon: Clock, color: 'text-orange-500' },
+      'generation': { name: 'التوليد', icon: Rocket, color: 'text-red-500' },
+    };
+    return stageNames[stageId] || { name: stageId, icon: Target, color: 'text-gray-500' };
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center" dir="rtl">
@@ -379,14 +467,14 @@ const ProjectPage = () => {
     { id: 'mindmap', label: 'خريطة', icon: GitBranch, content: outputs?.mindmap, filename: 'MindMap.json' },
   ];
 
-  const currentStageIndex = analysis?.stages?.findIndex(s => s.id === analysis?.current_stage) || 0;
+  const currentSuggestions = getCurrentStageSuggestions();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" dir="rtl">
+    <div className="h-screen bg-background flex flex-col overflow-hidden" dir="rtl">
       <Toaster position="top-center" richColors />
       
       {/* Header */}
-      <header className="glass border-b border-border/50 sticky top-0 z-50">
+      <header className="glass border-b border-border/50 sticky top-0 z-50 shrink-0">
         <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors-smooth p-2 hover:bg-muted rounded-lg">
@@ -398,6 +486,15 @@ const ProjectPage = () => {
           </div>
           
           <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setShowSidebar(!showSidebar)} 
+              className="rounded-xl transition-smooth lg:flex hidden"
+            >
+              {showSidebar ? <PanelRightClose className="w-5 h-5" /> : <PanelRight className="w-5 h-5" />}
+            </Button>
+            
             <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-xl transition-smooth">
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
@@ -425,53 +522,121 @@ const ProjectPage = () => {
         </div>
       </header>
 
-      {/* Progress Bar */}
-      {analysis && (
-        <div className="bg-card/50 border-b border-border/50 px-4 py-3 backdrop-blur-sm">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-foreground">تقدم المحادثة</span>
-              <span className="text-sm text-primary font-bold">{Math.round(analysis.total_progress)}%</span>
-            </div>
-            <Progress value={analysis.total_progress} className="h-2 mb-3" />
-            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {analysis.stages?.slice(0, -1).map((stage, idx) => {
-                const isCompleted = analysis.completed_stages?.includes(stage.id);
-                const isCurrent = analysis.current_stage === stage.id;
-                return (
-                  <div 
-                    key={stage.id}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-smooth ${
-                      isCompleted 
-                        ? 'bg-green-500/15 text-green-600 dark:text-green-400' 
-                        : isCurrent 
-                          ? 'bg-primary/15 text-primary ring-2 ring-primary/30' 
-                          : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {isCompleted && <Check className="w-3 h-3" />}
-                    {isCurrent && <Cpu className="w-3 h-3 animate-pulse" />}
-                    {stage.name}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Content */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex overflow-hidden">
         {/* Chat Section */}
-        <div className="flex-1 flex flex-col">
-          {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
-            <div className="max-w-3xl mx-auto space-y-4">
+        <div className="flex-1 flex flex-col min-w-0">
+          
+          {/* Progress Bar - New Design */}
+          {analysis && (
+            <div className="bg-gradient-to-l from-card via-card/80 to-card border-b border-border/50 px-4 py-4 shrink-0">
+              <div className="max-w-4xl mx-auto">
+                {/* Progress Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const stageInfo = getStageInfo(analysis.current_stage);
+                      const StageIcon = stageInfo.icon;
+                      return (
+                        <>
+                          <div className={`w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center`}>
+                            <StageIcon className={`w-5 h-5 ${stageInfo.color}`} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{stageInfo.name}</p>
+                            <p className="text-xs text-muted-foreground">المرحلة الحالية</p>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-primary">{Math.round(analysis.total_progress)}%</span>
+                  </div>
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="relative h-3 bg-muted rounded-full overflow-hidden mb-3">
+                  <div 
+                    className="absolute inset-y-0 right-0 bg-gradient-to-l from-primary to-blue-500 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${analysis.total_progress}%` }}
+                  />
+                  {/* Stage markers */}
+                  <div className="absolute inset-0 flex items-center justify-between px-1">
+                    {analysis.stages?.slice(0, -1).map((stage, idx) => {
+                      const position = ((idx + 1) / (analysis.stages.length - 1)) * 100;
+                      const isCompleted = analysis.completed_stages?.includes(stage.id);
+                      return (
+                        <div 
+                          key={stage.id}
+                          className={`w-2 h-2 rounded-full transition-all ${
+                            isCompleted ? 'bg-white shadow-sm' : 'bg-muted-foreground/30'
+                          }`}
+                          style={{ position: 'absolute', right: `${position}%`, transform: 'translateX(50%)' }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Stage Pills */}
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                  {analysis.stages?.slice(0, -1).map((stage, idx) => {
+                    const isCompleted = analysis.completed_stages?.includes(stage.id);
+                    const isCurrent = analysis.current_stage === stage.id;
+                    const stageInfo = getStageInfo(stage.id);
+                    const StageIcon = stageInfo.icon;
+                    
+                    return (
+                      <div 
+                        key={stage.id}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                          isCompleted 
+                            ? 'bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20' 
+                            : isCurrent 
+                              ? 'bg-primary/15 text-primary border-2 border-primary/40 shadow-sm' 
+                              : 'bg-muted/50 text-muted-foreground border border-transparent'
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        ) : isCurrent ? (
+                          <StageIcon className="w-3.5 h-3.5 animate-pulse" />
+                        ) : (
+                          <div className="w-3.5 h-3.5 rounded-full border-2 border-current opacity-50" />
+                        )}
+                        {stage.name}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Messages Area */}
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto"
+          >
+            <div className="max-w-3xl mx-auto p-4 space-y-4 pb-4">
+              {messages.length === 0 && (
+                <div className="text-center py-16 animate-fade-in">
+                  <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <MessageSquare className="w-10 h-10 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground mb-2">ابدأ المحادثة</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    اكتب فكرتك أو اختر من الاقتراحات أدناه لبدء رحلة تحويل فكرتك إلى مشروع
+                  </p>
+                </div>
+              )}
+              
               {messages.map((message, index) => (
                 <div
                   key={message.id}
                   className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'} animate-fade-in`}
-                  style={{ animationDelay: `${index * 0.02}s` }}
+                  style={{ animationDelay: `${Math.min(index * 0.02, 0.2)}s` }}
                 >
                   <div
                     className={`max-w-[85%] p-4 ${
@@ -481,7 +646,9 @@ const ProjectPage = () => {
                   >
                     <p className="whitespace-pre-wrap leading-relaxed">
                       {message.content}
-                      {message.isStreaming && <span className="inline-block w-2 h-5 bg-primary animate-pulse mr-1 align-middle rounded-sm" />}
+                      {message.isStreaming && (
+                        <span className="inline-block w-2 h-5 bg-primary animate-pulse mr-1 align-middle rounded-sm" />
+                      )}
                     </p>
                     {!message.isStreaming && (
                       <span className={`text-xs mt-2 block ${message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
@@ -506,300 +673,321 @@ const ProjectPage = () => {
               
               <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
-          {/* Quick Suggestions */}
-          {analysis?.suggestions && !sending && (
-            <div className="px-4 py-3 border-t border-border/50 bg-muted/30 backdrop-blur-sm">
-              <div className="max-w-3xl mx-auto">
-                <p className="text-xs text-muted-foreground mb-2 font-medium">اقتراحات سريعة:</p>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.suggestions.map((suggestion, idx) => {
-                    const IconComponent = iconMap[suggestion.icon] || Sparkles;
-                    return (
-                      <Button
-                        key={idx}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        className="rounded-full text-xs h-8 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
-                        data-testid={`suggestion-${idx}`}
-                      >
-                        <IconComponent className="w-3 h-3 ml-1" />
-                        {suggestion.text}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Generate Button */}
-          {(analysis?.ready_to_generate || analysis?.total_progress >= 60 || outputs) && !generating && (
-            <div className="p-4 border-t border-border/50 bg-gradient-to-r from-primary/10 via-primary/5 to-blue-500/10">
-              <div className="max-w-3xl mx-auto flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-primary" />
+          {/* Fixed Bottom Section */}
+          <div className="shrink-0 border-t border-border/50 bg-background">
+            {/* Generate Button */}
+            {(analysis?.ready_to_generate || analysis?.total_progress >= 60 || outputs) && !generating && (
+              <div className="p-3 bg-gradient-to-r from-primary/10 via-primary/5 to-blue-500/10 border-b border-border/50">
+                <div className="max-w-3xl mx-auto flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center animate-bounce-soft">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <span className="font-medium text-foreground block">
+                        {outputs ? 'المخرجات جاهزة' : 'جاهز لتوليد الملفات!'}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {outputs ? 'يمكنك إعادة التوليد' : '6 ملفات احترافية'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="font-medium text-foreground">
-                    {outputs ? 'المخرجات جاهزة - يمكنك إعادة التوليد' : 'جاهز لتوليد ملفات المشروع!'}
-                  </span>
+                  <Button
+                    onClick={handleGenerateOutputs}
+                    className="btn-primary rounded-xl shadow-glow hover:shadow-glow-lg"
+                    data-testid="generate-outputs-btn"
+                  >
+                    <Sparkles className="w-4 h-4 ml-2" />
+                    {outputs ? 'إعادة التوليد' : 'توليد'}
+                  </Button>
                 </div>
-                <Button
-                  onClick={handleGenerateOutputs}
-                  className="btn-primary rounded-xl shadow-glow hover:shadow-glow-lg"
-                  data-testid="generate-outputs-btn"
-                >
-                  <Sparkles className="w-4 h-4 ml-2" />
-                  {outputs ? 'إعادة التوليد' : 'توليد المخرجات'}
-                </Button>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Generating */}
-          {generating && (
-            <div className="p-4 border-t border-border/50 bg-primary">
-              <div className="max-w-3xl mx-auto flex items-center justify-center gap-3 text-primary-foreground">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span className="font-medium">جاري توليد 6 ملفات... قد يستغرق دقيقة</span>
+            {/* Generating Status */}
+            {generating && (
+              <div className="p-3 bg-primary border-b border-primary">
+                <div className="max-w-3xl mx-auto flex items-center justify-center gap-3 text-primary-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span className="font-medium">جاري توليد 6 ملفات...</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Input */}
-          <div className="p-4 border-t border-border/50 bg-background">
-            <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
-              <div className="flex gap-3">
-                <Input
-                  ref={inputRef}
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  placeholder="اكتب رسالتك أو اختر من الاقتراحات..."
-                  className="flex-1 h-12 rounded-xl border-border input-enhanced"
-                  disabled={sending || generating}
-                  data-testid="chat-input"
-                />
-                <Button
-                  type="submit"
-                  disabled={!messageInput.trim() || sending || generating}
-                  className="h-12 px-6 btn-primary rounded-xl"
-                  data-testid="send-message-btn"
-                >
-                  <Send className="w-5 h-5" />
-                </Button>
+            {/* Quick Suggestions - Stage Based */}
+            {!sending && !generating && currentSuggestions.length > 0 && (
+              <div className="px-4 py-3 bg-muted/30 border-b border-border/50">
+                <div className="max-w-3xl mx-auto">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Lightbulb className="w-3.5 h-3.5 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground font-medium">
+                      اقتراحات {analysis?.current_stage ? `لمرحلة ${getStageInfo(analysis.current_stage).name}` : 'سريعة'}:
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {currentSuggestions.map((suggestion, idx) => {
+                      const IconComponent = iconMap[suggestion.icon] || Sparkles;
+                      return (
+                        <Button
+                          key={idx}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className="rounded-full text-xs h-8 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
+                          data-testid={`suggestion-${idx}`}
+                        >
+                          <IconComponent className="w-3.5 h-3.5 ml-1.5" />
+                          {suggestion.text}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </form>
+            )}
+
+            {/* Input Area - Always Fixed at Bottom */}
+            <div className="p-4 bg-background">
+              <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
+                <div className="flex gap-3 items-center">
+                  <div className="flex-1 relative">
+                    <Input
+                      ref={inputRef}
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      placeholder="اكتب رسالتك هنا..."
+                      className="h-12 pr-4 pl-12 rounded-xl border-border input-enhanced text-base"
+                      disabled={sending || generating}
+                      data-testid="chat-input"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={!messageInput.trim() || sending || generating}
+                    className="h-12 w-12 btn-primary rounded-xl shrink-0"
+                    data-testid="send-message-btn"
+                  >
+                    {sending ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
 
         {/* Side Panel - Project Summary & Files Preview */}
-        <div className="w-80 border-r border-border/50 bg-card/50 backdrop-blur-sm hidden lg:flex flex-col">
-          {/* Project Summary */}
-          <div className="p-4 border-b border-border/50">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                ملخص المشروع
-              </h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowPreview(!showPreview)}
-                className="h-6 w-6 p-0 rounded-lg"
-              >
-                {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </Button>
-            </div>
-            
-            {showPreview && analysis?.project_summary && (
-              <div className="space-y-3 animate-fade-in">
-                <div className="flex items-center gap-2">
-                  <Badge className="badge-primary">
-                    {analysis.project_summary.type}
-                  </Badge>
-                  {analysis.complexity?.level_ar && (
-                    <Badge variant="outline" className="text-xs">
-                      {analysis.complexity.level_ar}
+        {showSidebar && (
+          <div className="w-80 border-r border-border/50 bg-card/50 backdrop-blur-sm hidden lg:flex flex-col shrink-0">
+            {/* Project Summary */}
+            <div className="p-4 border-b border-border/50">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  ملخص المشروع
+                </h3>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="h-6 w-6 p-0 rounded-lg"
+                >
+                  {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </Button>
+              </div>
+              
+              {showPreview && analysis?.project_summary && (
+                <div className="space-y-3 animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <Badge className="badge-primary">
+                      {analysis.project_summary.type}
                     </Badge>
+                    {analysis.complexity?.level_ar && (
+                      <Badge variant="outline" className="text-xs">
+                        {analysis.complexity.level_ar}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1 font-medium">الفكرة:</p>
+                    <p className="text-sm text-foreground leading-relaxed">{analysis.project_summary.idea_summary}</p>
+                  </div>
+                  
+                  {analysis.complexity?.estimated_time && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      <span>الوقت المقدر: {analysis.complexity.estimated_time}</span>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1 font-medium">الميزات المكتشفة:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {analysis.project_summary.features?.slice(0, 4).map((f, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {f.length > 20 ? f.slice(0, 20) + '...' : f}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {analysis.project_summary.technologies?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1 font-medium">التقنيات:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {analysis.project_summary.technologies.map((t, i) => (
+                          <Badge key={i} className="badge-info text-xs">
+                            {t}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Skills */}
+                  {analysis.suggested_skills?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 font-medium">
+                        <BookOpen className="w-3 h-3" />
+                        المهارات المقترحة:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {analysis.suggested_skills.map((s, i) => (
+                          <Badge key={i} className="badge-warning text-xs">
+                            {s.name_ar}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Verification */}
+                  {analysis.verification?.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 font-medium">
+                        <Shield className="w-3 h-3" />
+                        التحقق:
+                      </p>
+                      <div className="space-y-1">
+                        {analysis.verification.map((v, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-xs">
+                            {v.passed ? (
+                              <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
+                            ) : (
+                              <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
+                            )}
+                            <span className={v.passed ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
+                              {v.message}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-                
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1 font-medium">الفكرة:</p>
-                  <p className="text-sm text-foreground leading-relaxed">{analysis.project_summary.idea_summary}</p>
+              )}
+            </div>
+
+            {/* Files Preview */}
+            {outputs && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-border/50 flex items-center justify-between">
+                  <h3 className="font-semibold text-foreground flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    معاينة الملفات
+                  </h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportZip}
+                    disabled={exporting}
+                    className="h-7 text-xs rounded-lg gap-1 transition-smooth"
+                    data-testid="export-zip-btn"
+                  >
+                    {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderArchive className="w-3 h-3" />}
+                    {exporting ? 'جاري...' : 'تصدير ZIP'}
+                  </Button>
                 </div>
                 
-                {analysis.complexity?.estimated_time && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    <span>الوقت المقدر: {analysis.complexity.estimated_time}</span>
-                  </div>
-                )}
-                
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1 font-medium">الميزات المكتشفة:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {analysis.project_summary.features?.slice(0, 4).map((f, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {f.length > 20 ? f.slice(0, 20) + '...' : f}
-                      </Badge>
+                <div className="p-2 border-b border-border/50">
+                  <div className="grid grid-cols-3 gap-1">
+                    {outputTabs.map((tab) => (
+                      <Button
+                        key={tab.id}
+                        variant={previewFile === tab.id ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setPreviewFile(previewFile === tab.id ? null : tab.id)}
+                        className={`text-xs h-8 rounded-lg transition-smooth ${previewFile === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                      >
+                        <tab.icon className="w-3 h-3 ml-1" />
+                        {tab.label}
+                      </Button>
                     ))}
                   </div>
                 </div>
                 
-                {analysis.project_summary.technologies?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1 font-medium">التقنيات:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {analysis.project_summary.technologies.map((t, i) => (
-                        <Badge key={i} className="badge-info text-xs">
-                          {t}
-                        </Badge>
-                      ))}
+                {previewFile && (
+                  <ScrollArea className="flex-1 p-4">
+                    <div className="flex items-center justify-end gap-2 mb-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopy(outputTabs.find(t => t.id === previewFile)?.content, previewFile)}
+                        className="h-7 text-xs rounded-lg"
+                      >
+                        {copiedTab === previewFile ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const tab = outputTabs.find(t => t.id === previewFile);
+                          handleDownload(tab?.content, tab?.filename);
+                        }}
+                        className="h-7 text-xs rounded-lg"
+                      >
+                        <Download className="w-3 h-3" />
+                      </Button>
                     </div>
-                  </div>
+                    <div className="prose prose-sm max-w-none text-xs">
+                      {previewFile === 'mindmap' 
+                        ? renderMindMap(outputTabs.find(t => t.id === previewFile)?.content)
+                        : renderMarkdown(outputTabs.find(t => t.id === previewFile)?.content)
+                      }
+                    </div>
+                  </ScrollArea>
                 )}
-
-                {/* Skills */}
-                {analysis.suggested_skills?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 font-medium">
-                      <BookOpen className="w-3 h-3" />
-                      المهارات المقترحة:
+                
+                {!previewFile && (
+                  <div className="flex-1 flex items-center justify-center p-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      اختر ملفاً لمعاينته
                     </p>
-                    <div className="flex flex-wrap gap-1">
-                      {analysis.suggested_skills.map((s, i) => (
-                        <Badge key={i} className="badge-warning text-xs">
-                          {s.name_ar}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Verification */}
-                {analysis.verification?.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 font-medium">
-                      <Shield className="w-3 h-3" />
-                      التحقق:
-                    </p>
-                    <div className="space-y-1">
-                      {analysis.verification.map((v, i) => (
-                        <div key={i} className="flex items-center gap-1.5 text-xs">
-                          {v.passed ? (
-                            <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
-                          ) : (
-                            <AlertCircle className="w-3 h-3 text-amber-500 shrink-0" />
-                          )}
-                          <span className={v.passed ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
-                            {v.message}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
               </div>
             )}
-          </div>
-
-          {/* Files Preview */}
-          {outputs && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-4 border-b border-border/50 flex items-center justify-between">
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  معاينة الملفات
-                </h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportZip}
-                  disabled={exporting}
-                  className="h-7 text-xs rounded-lg gap-1 transition-smooth"
-                  data-testid="export-zip-btn"
-                >
-                  {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderArchive className="w-3 h-3" />}
-                  {exporting ? 'جاري...' : 'تصدير ZIP'}
-                </Button>
-              </div>
-              
-              <div className="p-2 border-b border-border/50">
-                <div className="grid grid-cols-3 gap-1">
-                  {outputTabs.map((tab) => (
-                    <Button
-                      key={tab.id}
-                      variant={previewFile === tab.id ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setPreviewFile(previewFile === tab.id ? null : tab.id)}
-                      className={`text-xs h-8 rounded-lg transition-smooth ${previewFile === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
-                    >
-                      <tab.icon className="w-3 h-3 ml-1" />
-                      {tab.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              
-              {previewFile && (
-                <ScrollArea className="flex-1 p-4">
-                  <div className="flex items-center justify-end gap-2 mb-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCopy(outputTabs.find(t => t.id === previewFile)?.content, previewFile)}
-                      className="h-7 text-xs rounded-lg"
-                    >
-                      {copiedTab === previewFile ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const tab = outputTabs.find(t => t.id === previewFile);
-                        handleDownload(tab?.content, tab?.filename);
-                      }}
-                      className="h-7 text-xs rounded-lg"
-                    >
-                      <Download className="w-3 h-3" />
-                    </Button>
+            
+            {!outputs && (
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <FileText className="w-8 h-8 text-muted-foreground/50" />
                   </div>
-                  <div className="prose prose-sm max-w-none text-xs">
-                    {previewFile === 'mindmap' 
-                      ? renderMindMap(outputTabs.find(t => t.id === previewFile)?.content)
-                      : renderMarkdown(outputTabs.find(t => t.id === previewFile)?.content)
-                    }
-                  </div>
-                </ScrollArea>
-              )}
-              
-              {!previewFile && (
-                <div className="flex-1 flex items-center justify-center p-4">
-                  <p className="text-sm text-muted-foreground text-center">
-                    اختر ملفاً لمعاينته
+                  <p className="text-sm text-muted-foreground">
+                    ستظهر الملفات هنا بعد التوليد
                   </p>
                 </div>
-              )}
-            </div>
-          )}
-          
-          {!outputs && (
-            <div className="flex-1 flex items-center justify-center p-4">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-3">
-                  <FileText className="w-8 h-8 text-muted-foreground/50" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  ستظهر الملفات هنا بعد التوليد
-                </p>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
