@@ -26,10 +26,35 @@ import zipfile
 from fastapi.responses import StreamingResponse
 from ai_system import full_analysis as ai_full_analysis, AdvancedNLP, SKILLS_LIBRARY, AGENTS, AgentRole
 
+# Import new models
+from models import (
+    UserRole, ProjectVisibility, ProjectStatus, CommentType, ReactionType, NotificationType,
+    UserProfile, UserStats, UserVerification, ProjectPricing, ProjectStats, IPCertificate,
+    UserRegister as UserRegisterModel, UserLogin, ProfileUpdate, PublicProfile,
+    ProjectCreate as ProjectCreateModel, ProjectUpdate as ProjectUpdateModel,
+    ProjectPublishSettings, CommentCreate, CommentUpdate, CommentReaction, CommentResponse,
+    NotificationResponse, ExploreFilters, PublicProjectCard, PublicProjectDetail,
+    MessageCreate as MessageCreateModel, APIKeyCreate as APIKeyCreateModel
+)
+
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Collections - existing
+users_collection = db.users
+projects_collection = db.projects
+messages_collection = db.messages
+api_keys_collection = db.api_keys
+outputs_collection = db.outputs
+
+# Collections - new for Phase 1
+public_projects_collection = db.public_projects
+comments_collection = db.comments
+follows_collection = db.follows
+saves_collection = db.saves
+notifications_collection = db.notifications
 
 # JWT Configuration
 JWT_SECRET = os.environ.get("JWT_SECRET", secrets.token_hex(32))
@@ -39,7 +64,7 @@ JWT_ALGORITHM = "HS256"
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", Fernet.generate_key().decode())
 
 # Create the main app
-app = FastAPI(title="BuildMap API")
+app = FastAPI(title="BuildMap Universe API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -48,16 +73,21 @@ api_router = APIRouter(prefix="/api")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ==================== MODELS ====================
+# ==================== LEGACY MODELS (KEEP FOR BACKWARD COMPATIBILITY) ====================
 
-class UserRegister(BaseModel):
+# Keep old models for now to avoid breaking existing code
+class UserRegisterLegacy(BaseModel):
     email: EmailStr
     password: str
     name: str
 
-class UserLogin(BaseModel):
+class UserLoginLegacy(BaseModel):
     email: EmailStr
     password: str
+
+# Use legacy models as aliases
+UserRegister = UserRegisterLegacy
+UserLogin = UserLoginLegacy
 
 class APIKeyCreate(BaseModel):
     api_key: str
@@ -334,6 +364,143 @@ async def get_current_user(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail=get_error_message("invalid_token"))
 
+# ==================== HELPER FUNCTIONS - PHASE 1 ====================
+
+async def create_notification(
+    user_id: str,
+    notification_type: str,
+    content: str,
+    link: Optional[str] = None
+):
+    """Create a new notification for a user"""
+    try:
+        notification = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "type": notification_type,
+            "content": content,
+            "link": link,
+            "is_read": False,
+            "created_at": datetime.now(timezone.utc)
+        }
+        await notifications_collection.insert_one(notification)
+        logger.info(f"Created notification for user {user_id}: {notification_type}")
+    except Exception as e:
+        logger.error(f"Error creating notification: {e}")
+
+async def update_user_stats(user_id: str, stat_field: str, increment: int = 1):
+    """Update user statistics"""
+    try:
+        # Get current stats
+        user = await users_collection.find_one({"_id": ObjectId(user_id)}, {"_id": 0, "stats": 1})
+        current_stats = user.get("stats", {}) if user else {}
+        
+        # Update the specific stat
+        current_value = current_stats.get(stat_field, 0)
+        new_value = current_value + increment
+        
+        await users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {f"stats.{stat_field}": new_value}}
+        )
+        logger.info(f"Updated {stat_field} for user {user_id}: {new_value}")
+    except Exception as e:
+        logger.error(f"Error updating user stats: {e}")
+
+async def add_user_points(user_id: str, points: int, reason: str):
+    """Add points to user and update level if needed"""
+    try:
+        # Get current points
+        user = await users_collection.find_one({"_id": ObjectId(user_id)}, {"_id": 0, "stats": 1})
+        current_stats = user.get("stats", {}) if user else {}
+        current_points = current_stats.get("points", 0)
+        new_points = current_points + points
+        
+        # Determine level based on points
+        if new_points >= 15000:
+            new_level = "legend"
+        elif new_points >= 5000:
+            new_level = "visionary"
+        elif new_points >= 2000:
+            new_level = "innovator"
+        elif new_points >= 500:
+            new_level = "builder"
+        else:
+            new_level = "seed"
+        
+        # Update stats
+        await users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {
+                "stats.points": new_points,
+                "stats.level": new_level
+            }}
+        )
+        
+        logger.info(f"Added {points} points to user {user_id} for: {reason}. New total: {new_points} ({new_level})")
+    except Exception as e:
+        logger.error(f"Error adding user points: {e}")
+
+async def increment_project_view(project_id: str):
+    """Increment project view count"""
+    try:
+        await public_projects_collection.update_one(
+            {"project_id": project_id},
+            {"$inc": {"stats.views": 1}}
+        )
+    except Exception as e:
+        logger.error(f"Error incrementing project views: {e}")
+
+async def get_user_profile_data(user_id_str: str) -> dict:
+    """Get complete user profile data including stats"""
+    try:
+        user = await users_collection.find_one({"_id": ObjectId(user_id_str)}, {"_id": 0, "password_hash": 0})
+        if not user:
+            return None
+        
+        # Ensure all required fields exist
+        if "profile" not in user:
+            user["profile"] = {
+                "avatar": None,
+                "bio": None,
+                "location": None,
+                "website": None,
+                "github_username": None,
+                "github_connected": False,
+                "skills": [],
+                "portfolio_urls": []
+            }
+        
+        if "stats" not in user:
+            user["stats"] = {
+                "projects_published": 0,
+                "projects_sold": 0,
+                "projects_built": 0,
+                "total_earnings": 0.0,
+                "average_rating": 0.0,
+                "followers_count": 0,
+                "following_count": 0,
+                "points": 0,
+                "level": "seed"
+            }
+        
+        if "verification" not in user:
+            user["verification"] = {
+                "email_verified": False,
+                "phone_verified": False,
+                "github_verified": False,
+                "id_verified": False
+            }
+        
+        if "role" not in user:
+            user["role"] = ["idea_owner"]
+        
+        user["id"] = user_id_str
+        return user
+    except Exception as e:
+        logger.error(f"Error getting user profile: {e}")
+        return None
+
 # ==================== AUTH ROUTES ====================
 
 @api_router.post("/auth/register")
@@ -348,11 +515,43 @@ async def register(user_data: UserRegister, response: Response):
         raise HTTPException(status_code=400, detail=get_error_message("email_exists"))
     
     hashed = hash_password(user_data.password)
+    
+    # Create user with Phase 1 structure
     user_doc = {
         "email": email,
         "password_hash": hashed,
         "name": user_data.name,
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "role": ["idea_owner"],  # Default role
+        "profile": {
+            "avatar": None,
+            "bio": None,
+            "location": None,
+            "website": None,
+            "github_username": None,
+            "github_connected": False,
+            "skills": [],
+            "portfolio_urls": []
+        },
+        "stats": {
+            "projects_published": 0,
+            "projects_sold": 0,
+            "projects_built": 0,
+            "total_earnings": 0.0,
+            "average_rating": 0.0,
+            "followers_count": 0,
+            "following_count": 0,
+            "points": 0,
+            "level": "seed"
+        },
+        "verification": {
+            "email_verified": False,
+            "phone_verified": False,
+            "github_verified": False,
+            "id_verified": False
+        },
+        "plan": "free",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
     
     result = await db.users.insert_one(user_doc)
@@ -1855,6 +2054,490 @@ async def export_project_zip(project_id: str, request: Request):
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+# ==================== PHASE 1: COMMUNITY APIS ====================
+
+# ==================== USER PROFILE APIS ====================
+
+@api_router.get("/users/{user_id}/profile")
+async def get_user_profile(user_id: str):
+    """Get public user profile"""
+    try:
+        user = await get_user_profile_data(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+        
+        # Remove sensitive data
+        user.pop("password_hash", None)
+        user.pop("email", None)  # Hide email in public profile
+        
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user profile: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ أثناء جلب البروفايل")
+
+@api_router.put("/users/profile")
+async def update_user_profile(
+    profile_data: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    """Update current user's profile"""
+    try:
+        allowed_fields = ["name", "avatar", "bio", "location", "website", "skills", "portfolio_urls"]
+        update_data = {}
+        
+        for field in allowed_fields:
+            if field in profile_data:
+                if field in ["avatar", "bio", "location", "website", "name"]:
+                    update_data[field if field == "name" else f"profile.{field}"] = profile_data[field]
+                elif field in ["skills", "portfolio_urls"]:
+                    update_data[f"profile.{field}"] = profile_data[field]
+        
+        if update_data:
+            update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            
+            await users_collection.update_one(
+                {"_id": ObjectId(current_user["id"])},
+                {"$set": update_data}
+            )
+        
+        return {"message": "تم تحديث البروفايل بنجاح"}
+    except Exception as e:
+        logger.error(f"Error updating profile: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ أثناء تحديث البروفايل")
+
+@api_router.get("/users/{user_id}/stats")
+async def get_user_stats(user_id: str):
+    """Get user statistics"""
+    try:
+        user = await get_user_profile_data(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+        
+        return user.get("stats", {})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user stats: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ أثناء جلب الإحصائيات")
+
+# ==================== FOLLOW SYSTEM APIS ====================
+
+@api_router.post("/users/{user_id}/follow")
+async def follow_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Follow a user"""
+    try:
+        if user_id == current_user["id"]:
+            raise HTTPException(status_code=400, detail="لا يمكنك متابعة نفسك")
+        
+        # Check if already following
+        existing = await follows_collection.find_one({
+            "follower_id": current_user["id"],
+            "following_id": user_id
+        })
+        
+        if existing:
+            raise HTTPException(status_code=400, detail="أنت تتابع هذا المستخدم بالفعل")
+        
+        # Create follow relationship
+        follow_doc = {
+            "id": str(uuid.uuid4()),
+            "follower_id": current_user["id"],
+            "following_id": user_id,
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await follows_collection.insert_one(follow_doc)
+        
+        # Update stats
+        await update_user_stats(user_id, "followers_count", 1)
+        await update_user_stats(current_user["id"], "following_count", 1)
+        
+        # Add points to follower
+        await add_user_points(current_user["id"], 10, "متابعة مستخدم جديد")
+        
+        # Create notification
+        await create_notification(
+            user_id,
+            "new_follower",
+            f"بدأ {current_user['name']} بمتابعتك",
+            f"/profile/{current_user['id']}"
+        )
+        
+        return {"message": "تمت المتابعة بنجاح"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error following user: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ أثناء المتابعة")
+
+@api_router.delete("/users/{user_id}/follow")
+async def unfollow_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Unfollow a user"""
+    try:
+        result = await follows_collection.delete_one({
+            "follower_id": current_user["id"],
+            "following_id": user_id
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="أنت لا تتابع هذا المستخدم")
+        
+        # Update stats
+        await update_user_stats(user_id, "followers_count", -1)
+        await update_user_stats(current_user["id"], "following_count", -1)
+        
+        return {"message": "تم إلغاء المتابعة بنجاح"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unfollowing user: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ أثناء إلغاء المتابعة")
+
+@api_router.get("/users/{user_id}/is-following")
+async def check_if_following(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Check if current user is following a user"""
+    try:
+        following = await follows_collection.find_one({
+            "follower_id": current_user["id"],
+            "following_id": user_id
+        })
+        
+        return {"is_following": following is not None}
+    except Exception as e:
+        logger.error(f"Error checking follow status: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.get("/users/{user_id}/followers")
+async def get_followers(user_id: str, page: int = 1, limit: int = 20):
+    """Get user's followers"""
+    try:
+        skip = (page - 1) * limit
+        
+        follows = await follows_collection.find(
+            {"following_id": user_id},
+            {"_id": 0}
+        ).skip(skip).limit(limit).to_list(limit)
+        
+        follower_ids = [f["follower_id"] for f in follows]
+        
+        # Get follower details
+        followers = []
+        for fid in follower_ids:
+            user = await get_user_profile_data(fid)
+            if user:
+                user.pop("password_hash", None)
+                followers.append({
+                    "id": user["id"],
+                    "name": user["name"],
+                    "avatar": user.get("profile", {}).get("avatar"),
+                    "bio": user.get("profile", {}).get("bio"),
+                    "stats": user.get("stats", {})
+                })
+        
+        return {"followers": followers, "page": page, "limit": limit}
+    except Exception as e:
+        logger.error(f"Error getting followers: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.get("/users/{user_id}/following")
+async def get_following(user_id: str, page: int = 1, limit: int = 20):
+    """Get users that this user follows"""
+    try:
+        skip = (page - 1) * limit
+        
+        follows = await follows_collection.find(
+            {"follower_id": user_id},
+            {"_id": 0}
+        ).skip(skip).limit(limit).to_list(limit)
+        
+        following_ids = [f["following_id"] for f in follows]
+        
+        # Get following details
+        following = []
+        for fid in following_ids:
+            user = await get_user_profile_data(fid)
+            if user:
+                user.pop("password_hash", None)
+                following.append({
+                    "id": user["id"],
+                    "name": user["name"],
+                    "avatar": user.get("profile", {}).get("avatar"),
+                    "bio": user.get("profile", {}).get("bio"),
+                    "stats": user.get("stats", {})
+                })
+        
+        return {"following": following, "page": page, "limit": limit}
+    except Exception as e:
+        logger.error(f"Error getting following: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+# ==================== SAVE SYSTEM APIS ====================
+
+@api_router.post("/projects/{project_id}/save")
+async def save_project(project_id: str, current_user: dict = Depends(get_current_user)):
+    """Save a project"""
+    try:
+        # Check if already saved
+        existing = await saves_collection.find_one({
+            "user_id": current_user["id"],
+            "project_id": project_id
+        })
+        
+        if existing:
+            raise HTTPException(status_code=400, detail="المشروع محفوظ بالفعل")
+        
+        # Create save
+        save_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "project_id": project_id,
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        await saves_collection.insert_one(save_doc)
+        
+        # Update project stats
+        await public_projects_collection.update_one(
+            {"project_id": project_id},
+            {"$inc": {"stats.saves": 1}}
+        )
+        
+        # Get project owner and create notification
+        project = await public_projects_collection.find_one({"project_id": project_id}, {"_id": 0})
+        if project:
+            await create_notification(
+                project["owner_id"],
+                "project_saved",
+                f"قام {current_user['name']} بحفظ مشروعك: {project['title']}",
+                f"/project/{project_id}/public"
+            )
+        
+        return {"message": "تم حفظ المشروع بنجاح"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving project: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ أثناء حفظ المشروع")
+
+@api_router.delete("/projects/{project_id}/save")
+async def unsave_project(project_id: str, current_user: dict = Depends(get_current_user)):
+    """Unsave a project"""
+    try:
+        result = await saves_collection.delete_one({
+            "user_id": current_user["id"],
+            "project_id": project_id
+        })
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="المشروع غير محفوظ")
+        
+        # Update project stats
+        await public_projects_collection.update_one(
+            {"project_id": project_id},
+            {"$inc": {"stats.saves": -1}}
+        )
+        
+        return {"message": "تم إلغاء حفظ المشروع"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unsaving project: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.get("/projects/{project_id}/is-saved")
+async def check_if_saved(project_id: str, current_user: dict = Depends(get_current_user)):
+    """Check if project is saved by current user"""
+    try:
+        saved = await saves_collection.find_one({
+            "user_id": current_user["id"],
+            "project_id": project_id
+        })
+        
+        return {"is_saved": saved is not None}
+    except Exception as e:
+        logger.error(f"Error checking save status: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.get("/saves")
+async def get_saved_projects(
+    current_user: dict = Depends(get_current_user),
+    page: int = 1,
+    limit: int = 20
+):
+    """Get current user's saved projects"""
+    try:
+        skip = (page - 1) * limit
+        
+        saves = await saves_collection.find(
+            {"user_id": current_user["id"]},
+            {"_id": 0}
+        ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+        
+        project_ids = [s["project_id"] for s in saves]
+        
+        # Get project details
+        projects = []
+        for pid in project_ids:
+            project = await public_projects_collection.find_one({"project_id": pid}, {"_id": 0})
+            if project:
+                # Get owner info
+                owner = await get_user_profile_data(project["owner_id"])
+                if owner:
+                    project["owner_name"] = owner["name"]
+                    project["owner_avatar"] = owner.get("profile", {}).get("avatar")
+                
+                projects.append(project)
+        
+        return {"projects": projects, "page": page, "limit": limit}
+    except Exception as e:
+        logger.error(f"Error getting saved projects: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+# ==================== PROJECT PUBLISHING APIS ====================
+
+@api_router.post("/projects/{project_id}/publish")
+async def publish_project(
+    project_id: str,
+    settings: Dict[str, Any],
+    current_user: dict = Depends(get_current_user)
+):
+    """Publish a project to make it public"""
+    try:
+        # Get original project
+        project = await projects_collection.find_one({"id": project_id, "user_id": current_user["id"]}, {"_id": 0})
+        if not project:
+            raise HTTPException(status_code=404, detail="المشروع غير موجود")
+        
+        # Check if already published
+        existing = await public_projects_collection.find_one({"project_id": project_id})
+        
+        visibility = settings.get("visibility", "public")
+        public_outputs = settings.get("public_outputs", [])
+        category = settings.get("category")
+        status = settings.get("status", "idea")
+        
+        # Generate IP certificate hash
+        content_hash = hashlib.sha256(
+            f"{project['title']}{project['idea']}{datetime.now(timezone.utc).isoformat()}".encode()
+        ).hexdigest()
+        
+        ip_cert = {
+            "hash": content_hash,
+            "timestamp": datetime.now(timezone.utc),
+            "certificate_url": None  # TODO: Generate PDF certificate
+        }
+        
+        if existing:
+            # Update existing published project
+            await public_projects_collection.update_one(
+                {"project_id": project_id},
+                {"$set": {
+                    "visibility": visibility,
+                    "public_outputs": public_outputs,
+                    "category": category,
+                    "status": status,
+                    "updated_at": datetime.now(timezone.utc)
+                }}
+            )
+        else:
+            # Create new published project
+            public_project = {
+                "id": str(uuid.uuid4()),
+                "project_id": project_id,
+                "owner_id": current_user["id"],
+                "title": project["title"],
+                "description": project["idea"],
+                "category": category,
+                "tech_stack": [],  # TODO: Extract from analysis
+                "visibility": visibility,
+                "for_sale": False,
+                "pricing": None,
+                "public_outputs": public_outputs,
+                "stats": {
+                    "views": 0,
+                    "saves": 0,
+                    "comments_count": 0,
+                    "reactions": {"fire": 0, "money": 0, "check": 0, "think": 0, "repeat": 0}
+                },
+                "ip_certificate": ip_cert,
+                "status": status,
+                "created_at": datetime.now(timezone.utc),
+                "published_at": datetime.now(timezone.utc)
+            }
+            
+            await public_projects_collection.insert_one(public_project)
+            
+            # Update user stats
+            await update_user_stats(current_user["id"], "projects_published", 1)
+            
+            # Add points for publishing
+            await add_user_points(current_user["id"], 50, "نشر مشروع عام")
+        
+        return {"message": "تم نشر المشروع بنجاح"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error publishing project: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ أثناء نشر المشروع")
+
+@api_router.put("/projects/{project_id}/visibility")
+async def update_project_visibility(
+    project_id: str,
+    data: Dict[str, str],
+    current_user: dict = Depends(get_current_user)
+):
+    """Update project visibility"""
+    try:
+        visibility = data.get("visibility")
+        if visibility not in ["private", "unlisted", "public"]:
+            raise HTTPException(status_code=400, detail="قيمة visibility غير صحيحة")
+        
+        result = await public_projects_collection.update_one(
+            {"project_id": project_id, "owner_id": current_user["id"]},
+            {"$set": {"visibility": visibility}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="المشروع غير موجود أو غير منشور")
+        
+        return {"message": "تم تحديث الخصوصية"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating visibility: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
+
+@api_router.get("/projects/{project_id}/public")
+async def get_public_project(project_id: str):
+    """Get public project details"""
+    try:
+        project = await public_projects_collection.find_one({"project_id": project_id}, {"_id": 0})
+        
+        if not project:
+            raise HTTPException(status_code=404, detail="المشروع غير موجود أو غير منشور")
+        
+        if project["visibility"] == "private":
+            raise HTTPException(status_code=403, detail="هذا المشروع خاص")
+        
+        # Increment views
+        await increment_project_view(project_id)
+        
+        # Get owner info
+        owner = await get_user_profile_data(project["owner_id"])
+        if owner:
+            owner.pop("password_hash", None)
+            owner.pop("email", None)
+            project["owner"] = owner
+        
+        return project
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting public project: {e}")
+        raise HTTPException(status_code=500, detail="حدث خطأ")
 
 # ==================== ROOT ====================
 
