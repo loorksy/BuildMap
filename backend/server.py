@@ -921,6 +921,229 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
         "analysis": updated_analysis
     }
 
+# ==================== STREAMING CHAT ====================
+
+async def build_chat_context(project_id: str, user_id: str, message_content: str):
+    """Shared logic: save user message, build system prompt, return context needed for AI call"""
+    project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user_id})
+    if not project:
+        return None
+    
+    api_key_doc = await db.api_keys.find_one({"user_id": user_id})
+    if not api_key_doc:
+        return None
+    
+    api_key = decrypt_api_key(api_key_doc["encrypted_key"])
+    
+    # Save user message
+    user_message = {
+        "project_id": project_id,
+        "role": "user",
+        "content": message_content,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.messages.insert_one(user_message)
+    
+    # Get conversation history
+    history = await db.messages.find(
+        {"project_id": project_id},
+        {"_id": 0, "role": 1, "content": 1}
+    ).sort("created_at", -1).limit(15).to_list(15)
+    history.reverse()
+    
+    # Analyze progress
+    all_messages = await db.messages.find(
+        {"project_id": project_id},
+        {"_id": 0, "role": 1, "content": 1}
+    ).to_list(100)
+    analysis = analyze_conversation_progress(all_messages, project["idea"])
+    ai_analysis = ai_full_analysis(all_messages, project["idea"])
+    
+    stage_agent_map = {
+        "idea": AgentRole.PLANNER, "audience": AgentRole.PLANNER,
+        "problem": AgentRole.EVALUATOR, "features": AgentRole.ARCHITECT,
+        "technical": AgentRole.ARCHITECT, "ready": AgentRole.REVIEWER
+    }
+    active_agent = AGENTS.get(stage_agent_map.get(analysis["current_stage"], AgentRole.PLANNER))
+    
+    skills_context = ""
+    if ai_analysis.get("suggested_skills"):
+        skill_names = [s["name_ar"] for s in ai_analysis["suggested_skills"][:3]]
+        skills_context = f"\nالمهارات المقترحة للمشروع: {', '.join(skill_names)}"
+    
+    complexity_context = ""
+    if ai_analysis.get("complexity"):
+        c = ai_analysis["complexity"]
+        complexity_context = f"\nتعقيد المشروع: {c.get('level_ar', '')} | الوقت المقدر: {c.get('estimated_time', '')}"
+    
+    verification_context = ""
+    if ai_analysis.get("verification"):
+        failed = [v for v in ai_analysis["verification"] if not v.get("passed")]
+        if failed:
+            verification_context = "\nملاحظات التحقق: " + " | ".join([v["message"] for v in failed])
+    
+    stage_prompts = {
+        "idea": "ركز على فهم نوع المشروع والرؤية العامة. اسأل عن نوع التطبيق وما يميزه.",
+        "audience": "اسأل عن الفئة المستهدفة واحتياجاتهم. من سيستخدم هذا المشروع؟",
+        "problem": "استكشف المشكلة التي يحلها المشروع. ما القيمة التي سيقدمها؟",
+        "features": "حدد الميزات الرئيسية والإضافية. ما الوظائف الأساسية؟",
+        "technical": "ناقش الجوانب التقنية: التقنيات، قاعدة البيانات، البنية.",
+        "ready": "المشروع جاهز للتوليد. اعرض ملخصاً واسأل إن كان يريد إضافة شيء."
+    }
+    current_stage_prompt = stage_prompts.get(analysis["current_stage"], "")
+    
+    system_prompt = f"""أنت مساعد ذكي في منصة BuildMap متخصص في تحويل الأفكار إلى مشاريع تقنية.
+
+دورك الحالي: {active_agent.name_ar} - {active_agent.description}
+
+{active_agent.system_prompt}
+
+أسلوبك:
+- محادثة طبيعية وودية
+- أسئلة ذكية ومحددة (سؤال أو اثنين في كل رد)
+- لا تكرر نفسك
+- قدم اقتراحات مفيدة
+- استخدم التنسيق المناسب
+
+المرحلة الحالية: {analysis["current_stage"]}
+التقدم: {analysis["total_progress"]:.0f}%
+
+{current_stage_prompt}
+{skills_context}
+{complexity_context}
+{verification_context}
+
+عندما تشعر أن المعلومات كافية (تقدم 70% أو أكثر)، أخبر المستخدم أنه يمكنه توليد المخرجات الآن وأضف:
+[READY_TO_GENERATE]
+
+تحدث بالعربية."""
+
+    messages_for_api = [{"role": "system", "content": system_prompt}]
+    for msg in history:
+        messages_for_api.append({"role": msg["role"], "content": msg["content"]})
+    
+    return {
+        "api_key": api_key,
+        "model": project["selected_model"],
+        "messages_for_api": messages_for_api,
+        "project": project,
+        "analysis": analysis,
+        "all_messages": all_messages,
+    }
+
+@api_router.post("/projects/{project_id}/messages/stream")
+async def stream_message(project_id: str, message_data: MessageCreate, request: Request):
+    """Stream AI response using Server-Sent Events"""
+    user = await get_current_user(request)
+    
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    if not project:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
+    api_key_doc = await db.api_keys.find_one({"user_id": user["id"]})
+    if not api_key_doc:
+        raise HTTPException(status_code=400, detail=get_error_message("api_key_required"))
+    
+    ctx = await build_chat_context(project_id, user["id"], message_data.content)
+    if not ctx:
+        raise HTTPException(status_code=400, detail=get_error_message("server_error"))
+    
+    async def event_generator():
+        full_content = ""
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as http_client:
+                async with http_client.stream(
+                    "POST",
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {ctx['api_key']}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://buildmap.app",
+                        "X-Title": "BuildMap"
+                    },
+                    json={
+                        "model": ctx["model"],
+                        "messages": ctx["messages_for_api"],
+                        "max_tokens": 1500,
+                        "temperature": 0.7,
+                        "stream": True
+                    }
+                ) as response:
+                    if response.status_code != 200:
+                        error_body = b""
+                        async for chunk in response.aiter_bytes():
+                            error_body += chunk
+                        error_msg = "ai_connection_error"
+                        if response.status_code == 401:
+                            error_msg = "api_key_invalid"
+                        elif response.status_code == 402:
+                            error_msg = "insufficient_credits"
+                        elif response.status_code == 429:
+                            error_msg = "rate_limit"
+                        yield f"data: {json.dumps({'type': 'error', 'content': get_error_message(error_msg)})}\n\n"
+                        return
+                    
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data_str = line[6:]
+                        if data_str.strip() == "[DONE]":
+                            break
+                        try:
+                            chunk_data = json.loads(data_str)
+                            delta = chunk_data.get("choices", [{}])[0].get("delta", {})
+                            content_piece = delta.get("content", "")
+                            if content_piece:
+                                full_content += content_piece
+                                yield f"data: {json.dumps({'type': 'chunk', 'content': content_piece})}\n\n"
+                        except json.JSONDecodeError:
+                            continue
+            
+            # Save the complete assistant message
+            ready_to_generate = "[READY_TO_GENERATE]" in full_content
+            clean_content = full_content.replace("[READY_TO_GENERATE]", "").strip()
+            
+            assistant_message = {
+                "project_id": project_id,
+                "role": "assistant",
+                "content": clean_content,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            result = await db.messages.insert_one(assistant_message)
+            
+            await db.projects.update_one(
+                {"_id": ObjectId(project_id)},
+                {"$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            
+            # Get updated analysis
+            all_msgs = ctx["all_messages"]
+            all_msgs.append({"role": "user", "content": message_data.content})
+            all_msgs.append({"role": "assistant", "content": clean_content})
+            updated_analysis = analyze_conversation_progress(all_msgs, ctx["project"]["idea"])
+            
+            # Send final event with metadata
+            yield f"data: {json.dumps({'type': 'done', 'id': str(result.inserted_id), 'created_at': assistant_message['created_at'], 'ready_to_generate': ready_to_generate or updated_analysis['total_progress'] >= 70, 'analysis': updated_analysis})}\n\n"
+        
+        except httpx.TimeoutException:
+            yield f"data: {json.dumps({'type': 'error', 'content': get_error_message('ai_timeout')})}\n\n"
+        except Exception as e:
+            logger.error(f"Streaming error: {str(e)}")
+            yield f"data: {json.dumps({'type': 'error', 'content': get_error_message('ai_connection_error')})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
 # ==================== OUTPUT GENERATION ====================
 
 @api_router.post("/projects/{project_id}/generate")

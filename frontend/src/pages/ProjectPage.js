@@ -180,30 +180,86 @@ const ProjectPage = () => {
     setMessageInput('');
     setSending(true);
 
+    // Add a placeholder streaming message
+    const streamingMsgId = (Date.now() + 1).toString();
+    const streamingMsg = {
+      id: streamingMsgId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+      isStreaming: true
+    };
+    setMessages(prev => [...prev, streamingMsg]);
+
     try {
-      const response = await axios.post(`${API}/projects/${projectId}/messages`, {
-        content: content
+      const response = await fetch(`${API}/projects/${projectId}/messages/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ content })
       });
 
-      setMessages(prev => [...prev, response.data]);
-      
-      // Update analysis
-      if (response.data.analysis) {
-        setAnalysis(response.data.analysis);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || 'حدث خطأ في إرسال الرسالة');
       }
-      
-      if (response.data.ready_to_generate) {
-        toast.success('المشروع جاهز لتوليد المخرجات!', {
-          action: {
-            label: 'توليد الآن',
-            onClick: handleGenerateOutputs
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const dataStr = line.slice(6).trim();
+          if (!dataStr) continue;
+
+          try {
+            const event = JSON.parse(dataStr);
+            
+            if (event.type === 'chunk') {
+              setMessages(prev => prev.map(m => 
+                m.id === streamingMsgId 
+                  ? { ...m, content: m.content + event.content }
+                  : m
+              ));
+            } else if (event.type === 'done') {
+              setMessages(prev => prev.map(m => 
+                m.id === streamingMsgId 
+                  ? { ...m, id: event.id, created_at: event.created_at, isStreaming: false }
+                  : m
+              ));
+              if (event.analysis) {
+                setAnalysis(event.analysis);
+              }
+              if (event.ready_to_generate) {
+                toast.success('المشروع جاهز لتوليد المخرجات!', {
+                  action: {
+                    label: 'توليد الآن',
+                    onClick: handleGenerateOutputs
+                  }
+                });
+              }
+            } else if (event.type === 'error') {
+              toast.error(event.content);
+              setMessages(prev => prev.filter(m => m.id !== streamingMsgId));
+            }
+          } catch (parseErr) {
+            // ignore malformed SSE chunks
           }
-        });
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      toast.error(error.response?.data?.detail || 'حدث خطأ في إرسال الرسالة');
-      setMessages(prev => prev.filter(m => m.id !== userMessage.id));
+      toast.error(error.message || 'حدث خطأ في إرسال الرسالة');
+      setMessages(prev => prev.filter(m => m.id !== userMessage.id && m.id !== streamingMsgId));
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -436,15 +492,20 @@ const ProjectPage = () => {
                     }`}
                     data-testid={`message-${message.role}`}
                   >
-                    <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                    <span className={`text-xs mt-2 block ${message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                      {new Date(message.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <p className="whitespace-pre-wrap leading-relaxed">
+                      {message.content}
+                      {message.isStreaming && <span className="inline-block w-2 h-4 bg-primary animate-pulse mr-1 align-middle rounded-sm" />}
+                    </p>
+                    {!message.isStreaming && (
+                      <span className={`text-xs mt-2 block ${message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        {new Date(message.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
               
-              {sending && (
+              {sending && !messages.some(m => m.isStreaming) && (
                 <div className="flex justify-end">
                   <div className="chat-bubble-assistant p-4">
                     <div className="flex items-center gap-1">

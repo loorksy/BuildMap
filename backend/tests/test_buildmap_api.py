@@ -1,7 +1,7 @@
 """
-BuildMap API Tests - Iteration 5
-Testing: Auth, Projects, Analysis, Export, Models endpoints
-New features: Enhanced analysis with complexity/skills/verification, ZIP export
+BuildMap API Tests - Iteration 6
+Testing: Auth, Projects, Analysis, Export, Models, Streaming endpoints
+New features: SSE streaming endpoint POST /api/projects/{id}/messages/stream
 """
 
 import pytest
@@ -306,7 +306,7 @@ class TestExportEndpoint:
 
 
 class TestMessagesEndpoint:
-    """Test messages endpoint"""
+    """Test messages endpoint (non-streaming)"""
     
     @pytest.fixture
     def auth_session(self):
@@ -337,6 +337,163 @@ class TestMessagesEndpoint:
             assert "content" in msg
             assert "created_at" in msg
         print(f"✓ Messages endpoint working: {len(data)} messages found")
+    
+    def test_non_streaming_message_endpoint_backward_compatible(self, auth_session):
+        """Test POST /api/projects/{id}/messages still works (backward compatibility)"""
+        projects = auth_session.get(f"{BASE_URL}/api/projects").json()
+        if len(projects) == 0:
+            pytest.skip("No projects to test messages")
+        
+        project_id = projects[0]["id"]
+        response = auth_session.post(
+            f"{BASE_URL}/api/projects/{project_id}/messages",
+            json={"content": "اختبار"}
+        )
+        # Should return 400 (api_key_required) or 200 (success) - not 404 or 500
+        assert response.status_code in [200, 400], f"Non-streaming endpoint failed: {response.status_code} - {response.text}"
+        
+        if response.status_code == 400:
+            # Expected when no API key is configured
+            data = response.json()
+            assert "detail" in data
+            print(f"✓ Non-streaming endpoint working (returns API key required error as expected)")
+        else:
+            # Success case
+            data = response.json()
+            assert "id" in data
+            assert "role" in data
+            assert "content" in data
+            print(f"✓ Non-streaming endpoint working (message sent successfully)")
+
+
+class TestStreamingEndpoint:
+    """Test SSE streaming endpoint POST /api/projects/{id}/messages/stream"""
+    
+    @pytest.fixture
+    def auth_session(self):
+        """Create authenticated session"""
+        session = requests.Session()
+        session.post(f"{BASE_URL}/api/auth/login", json={
+            "email": TEST_EMAIL,
+            "password": TEST_PASSWORD
+        })
+        return session
+    
+    def test_streaming_endpoint_returns_sse_content_type(self, auth_session):
+        """Test streaming endpoint returns Content-Type: text/event-stream"""
+        projects = auth_session.get(f"{BASE_URL}/api/projects").json()
+        if len(projects) == 0:
+            pytest.skip("No projects to test streaming")
+        
+        project_id = projects[0]["id"]
+        response = auth_session.post(
+            f"{BASE_URL}/api/projects/{project_id}/messages/stream",
+            json={"content": "مرحبا"},
+            stream=True
+        )
+        
+        # Check Content-Type header
+        content_type = response.headers.get("content-type", "")
+        assert "text/event-stream" in content_type, f"Expected text/event-stream, got {content_type}"
+        print(f"✓ Streaming endpoint returns correct Content-Type: {content_type}")
+    
+    def test_streaming_endpoint_returns_proper_sse_format(self, auth_session):
+        """Test streaming endpoint returns proper SSE format (data: {...})"""
+        projects = auth_session.get(f"{BASE_URL}/api/projects").json()
+        if len(projects) == 0:
+            pytest.skip("No projects to test streaming")
+        
+        project_id = projects[0]["id"]
+        response = auth_session.post(
+            f"{BASE_URL}/api/projects/{project_id}/messages/stream",
+            json={"content": "اختبار SSE"},
+            stream=True
+        )
+        
+        # Read the first chunk
+        sse_data = ""
+        for chunk in response.iter_content(chunk_size=1024, decode_unicode=True):
+            if chunk:
+                sse_data += chunk
+                break  # Just need first chunk to verify format
+        
+        # Verify SSE format: should start with "data: "
+        assert sse_data.startswith("data: "), f"SSE format incorrect, got: {sse_data[:100]}"
+        
+        # Parse the JSON in the SSE data
+        import json
+        json_str = sse_data.split("data: ")[1].split("\n")[0]
+        event_data = json.loads(json_str)
+        
+        # Verify event structure
+        assert "type" in event_data, "SSE event missing 'type' field"
+        assert event_data["type"] in ["chunk", "done", "error"], f"Unknown event type: {event_data['type']}"
+        
+        print(f"✓ Streaming endpoint returns proper SSE format")
+        print(f"  - Event type: {event_data['type']}")
+        if event_data["type"] == "error":
+            print(f"  - Error content: {event_data.get('content', 'N/A')}")
+    
+    def test_streaming_endpoint_returns_error_for_invalid_api_key(self, auth_session):
+        """Test streaming endpoint returns error event for invalid/missing API key"""
+        projects = auth_session.get(f"{BASE_URL}/api/projects").json()
+        if len(projects) == 0:
+            pytest.skip("No projects to test streaming")
+        
+        project_id = projects[0]["id"]
+        response = auth_session.post(
+            f"{BASE_URL}/api/projects/{project_id}/messages/stream",
+            json={"content": "test"},
+            stream=True
+        )
+        
+        # Read all SSE data
+        sse_data = ""
+        for chunk in response.iter_content(chunk_size=4096, decode_unicode=True):
+            if chunk:
+                sse_data += chunk
+        
+        # Parse SSE events
+        import json
+        events = []
+        for line in sse_data.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    event = json.loads(line[6:])
+                    events.append(event)
+                except json.JSONDecodeError:
+                    pass
+        
+        # Should have at least one event
+        assert len(events) > 0, "No SSE events received"
+        
+        # Check if we got an error event (expected when no valid API key)
+        error_events = [e for e in events if e.get("type") == "error"]
+        if error_events:
+            error_content = error_events[0].get("content", "")
+            # Should contain Arabic error message about API key
+            assert len(error_content) > 0, "Error event has empty content"
+            print(f"✓ Streaming endpoint returns proper error event for invalid API key")
+            print(f"  - Error message: {error_content}")
+        else:
+            # If no error, we might have a valid API key - check for chunk/done events
+            chunk_events = [e for e in events if e.get("type") == "chunk"]
+            done_events = [e for e in events if e.get("type") == "done"]
+            print(f"✓ Streaming endpoint working (received {len(chunk_events)} chunks, {len(done_events)} done events)")
+    
+    def test_streaming_endpoint_requires_authentication(self):
+        """Test streaming endpoint returns 401 without authentication"""
+        # Use a fresh session without login
+        session = requests.Session()
+        
+        # Try to access streaming endpoint without auth
+        response = session.post(
+            f"{BASE_URL}/api/projects/some-project-id/messages/stream",
+            json={"content": "test"}
+        )
+        
+        assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+        print("✓ Streaming endpoint correctly requires authentication")
 
 
 class TestCleanup:
