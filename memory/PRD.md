@@ -24,6 +24,17 @@
 
 ## What's Been Implemented (April 10, 2026)
 
+### Design Improvements (Latest)
+- ✅ Dark/Light mode toggle with persistence
+- ✅ Rounded corners (rounded-xl, rounded-2xl) on all elements
+- ✅ Lucide-react icons replacing emojis
+- ✅ Arabic error messages with clear explanations
+- ✅ Dynamic model loading from OpenRouter API
+- ✅ Professional design similar to app.emergent.sh
+- ✅ Glass morphism header
+- ✅ Gradient text effects
+- ✅ Better shadows and hover states
+
 ### Backend APIs
 - ✅ Auth: /api/auth/register, /api/auth/login, /api/auth/logout, /api/auth/me
 - ✅ API Keys: /api/api-keys (GET, POST, DELETE)
