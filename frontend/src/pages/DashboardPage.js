@@ -45,11 +45,19 @@ import {
   AlertCircle,
   CheckCircle,
   ExternalLink,
-  Loader2
+  Loader2,
+  Shield
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const PROVIDER_INFO = {
+  openrouter: { name: 'OpenRouter', color: 'bg-blue-500', prefix: 'sk-or-', url: 'https://openrouter.ai/keys', desc: 'يدعم جميع النماذج (OpenAI, Anthropic, Google, Meta وأكثر)' },
+  openai: { name: 'OpenAI', color: 'bg-green-600', prefix: 'sk-', url: 'https://platform.openai.com/api-keys', desc: 'GPT-4o, GPT-4o Mini وغيرها' },
+  anthropic: { name: 'Anthropic', color: 'bg-amber-600', prefix: 'sk-ant-', url: 'https://console.anthropic.com/settings/keys', desc: 'Claude 3.5 Sonnet, Claude 3 Opus' },
+  google: { name: 'Google AI', color: 'bg-red-500', prefix: 'AI', url: 'https://aistudio.google.com/apikey', desc: 'Gemini Pro, Gemini Flash' },
+};
 
 const DashboardPage = () => {
   const { user, logout } = useAuth();
@@ -72,6 +80,7 @@ const DashboardPage = () => {
   const [selectedModel, setSelectedModel] = useState('openai/gpt-4o');
   const [savingApiKey, setSavingApiKey] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState('openrouter');
 
   useEffect(() => {
     fetchData();
@@ -150,13 +159,13 @@ const DashboardPage = () => {
     try {
       await axios.post(`${API}/api-keys`, {
         api_key: newApiKey,
+        provider: selectedProvider,
         default_model: selectedModel
       });
-      toast.success('تم حفظ مفتاح API بنجاح');
+      toast.success(`تم حفظ مفتاح ${PROVIDER_INFO[selectedProvider]?.name || selectedProvider} بنجاح`);
       setShowApiKeyDialog(false);
       setNewApiKey('');
       fetchData();
-      // Fetch models with new API key
       fetchModels();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'مفتاح API غير صالح');
@@ -168,8 +177,18 @@ const DashboardPage = () => {
   const handleDeleteApiKey = async () => {
     try {
       await axios.delete(`${API}/api-keys`);
-      toast.success('تم حذف مفتاح API');
-      setApiKeyInfo({ has_key: false });
+      toast.success('تم حذف جميع المفاتيح');
+      setApiKeyInfo({ has_key: false, providers: [] });
+    } catch (error) {
+      toast.error('حدث خطأ');
+    }
+  };
+
+  const handleDeleteProviderKey = async (provider) => {
+    try {
+      await axios.delete(`${API}/api-keys/${provider}`);
+      toast.success(`تم حذف مفتاح ${PROVIDER_INFO[provider]?.name || provider}`);
+      fetchData();
     } catch (error) {
       toast.error('حدث خطأ');
     }
@@ -457,14 +476,39 @@ const DashboardPage = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {apiKeyInfo?.has_key ? (
+            {apiKeyInfo?.has_key && apiKeyInfo?.providers?.length > 0 ? (
+              <div className="space-y-2">
+                {apiKeyInfo.providers.map((p) => (
+                  <div key={p.provider} className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${PROVIDER_INFO[p.provider]?.color || 'bg-gray-400'}`} />
+                        <div>
+                          <p className="text-green-600 dark:text-green-400 font-medium text-sm">{p.provider_name} متصل</p>
+                          <p className="text-green-600/70 dark:text-green-400/70 text-xs">{p.default_model}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteProviderKey(p.provider)}
+                        className="text-destructive h-7 w-7 p-0 rounded-lg"
+                        data-testid={`delete-${p.provider}-key-btn`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : apiKeyInfo?.has_key ? (
               <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CheckCircle className="w-5 h-5 text-green-500" />
                     <div>
                       <p className="text-green-600 dark:text-green-400 font-medium">مفتاح API متصل</p>
-                      <p className="text-green-600/70 dark:text-green-400/70 text-sm">النموذج الافتراضي: {apiKeyInfo.default_model}</p>
+                      <p className="text-green-600/70 dark:text-green-400/70 text-sm">النموذج: {apiKeyInfo.default_model}</p>
                     </div>
                   </div>
                   <Button
@@ -480,26 +524,51 @@ const DashboardPage = () => {
               </div>
             ) : null}
             
+            {/* Provider Selection */}
             <div className="space-y-2">
-              <Label htmlFor="api-key">مفتاح API</Label>
+              <Label>المزود</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(PROVIDER_INFO).map(([id, info]) => (
+                  <button
+                    key={id}
+                    onClick={() => setSelectedProvider(id)}
+                    className={`p-3 rounded-xl border-2 text-right transition-all ${
+                      selectedProvider === id 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-muted-foreground/30'
+                    }`}
+                    data-testid={`provider-${id}-btn`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`w-2.5 h-2.5 rounded-full ${info.color}`} />
+                      <span className="font-medium text-sm text-foreground">{info.name}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{info.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="api-key">مفتاح {PROVIDER_INFO[selectedProvider]?.name || 'API'}</Label>
               <Input
                 id="api-key"
                 type="password"
                 value={newApiKey}
                 onChange={(e) => setNewApiKey(e.target.value)}
-                placeholder="sk-or-..."
+                placeholder={`${PROVIDER_INFO[selectedProvider]?.prefix || ''}...`}
                 className="rounded-xl font-mono"
                 data-testid="api-key-input"
               />
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 احصل على مفتاحك من
                 <a 
-                  href="https://openrouter.ai/keys" 
+                  href={PROVIDER_INFO[selectedProvider]?.url || '#'} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-primary hover:underline inline-flex items-center gap-1"
                 >
-                  openrouter.ai/keys
+                  {PROVIDER_INFO[selectedProvider]?.name}
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </p>
@@ -522,6 +591,11 @@ const DashboardPage = () => {
                               مجاني
                             </Badge>
                           )}
+                          {model.source && model.source !== 'openrouter' && model.source !== 'default' && (
+                            <Badge variant="outline" className="text-xs">
+                              مباشر
+                            </Badge>
+                          )}
                         </div>
                         <span className="text-xs text-muted-foreground mr-2">({model.provider})</span>
                       </SelectItem>
@@ -530,7 +604,7 @@ const DashboardPage = () => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                سيتم تحميل جميع النماذج المتاحة بعد إضافة المفتاح
+                سيتم تحميل جميع النماذج المتاحة من جميع المزودين المتصلين
               </p>
             </div>
           </div>

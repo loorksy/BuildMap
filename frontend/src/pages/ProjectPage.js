@@ -6,6 +6,7 @@ import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import InteractiveMindMap from '../components/InteractiveMindMap';
 import { 
   Select, 
   SelectContent, 
@@ -355,22 +356,7 @@ const ProjectPage = () => {
   };
 
   const renderMindMap = (data) => {
-    try {
-      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-      
-      const renderNode = (node, level = 0) => (
-        <div key={node.title} className={`${level > 0 ? 'mr-6 border-r-2 border-border pr-4' : ''}`}>
-          <div className={`p-3 mb-2 rounded-xl ${level === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted border border-border'}`}>
-            <span className="font-medium">{node.title}</span>
-          </div>
-          {node.children && node.children.map(child => renderNode(child, level + 1))}
-        </div>
-      );
-
-      return <div className="p-4">{renderNode(parsed)}</div>;
-    } catch (e) {
-      return <pre className="bg-muted p-4 overflow-x-auto text-sm rounded-xl">{data}</pre>;
-    }
+    return <InteractiveMindMap data={data} />;
   };
 
   if (loading) {

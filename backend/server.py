@@ -61,6 +61,7 @@ class UserLogin(BaseModel):
 
 class APIKeyCreate(BaseModel):
     api_key: str
+    provider: str = "openrouter"
     default_model: str = "openai/gpt-4o"
 
 class ProjectCreate(BaseModel):
@@ -406,34 +407,268 @@ async def get_me(request: Request):
     user = await get_current_user(request)
     return user
 
+# ==================== PROVIDER CONFIG ====================
+
+PROVIDER_CONFIG = {
+    "openrouter": {
+        "name": "OpenRouter",
+        "name_ar": "OpenRouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "validate_url": "https://openrouter.ai/api/v1/models",
+        "models_url": "https://openrouter.ai/api/v1/models",
+        "key_prefix": "sk-or-",
+        "key_help_url": "https://openrouter.ai/keys"
+    },
+    "openai": {
+        "name": "OpenAI",
+        "name_ar": "OpenAI",
+        "base_url": "https://api.openai.com/v1",
+        "validate_url": "https://api.openai.com/v1/models",
+        "models_url": "https://api.openai.com/v1/models",
+        "key_prefix": "sk-",
+        "key_help_url": "https://platform.openai.com/api-keys"
+    },
+    "anthropic": {
+        "name": "Anthropic",
+        "name_ar": "Anthropic",
+        "base_url": "https://api.anthropic.com/v1",
+        "validate_url": "https://api.anthropic.com/v1/messages",
+        "models_url": None,
+        "key_prefix": "sk-ant-",
+        "key_help_url": "https://console.anthropic.com/settings/keys"
+    },
+    "google": {
+        "name": "Google AI",
+        "name_ar": "Google AI",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta",
+        "validate_url": "https://generativelanguage.googleapis.com/v1beta/models",
+        "models_url": "https://generativelanguage.googleapis.com/v1beta/models",
+        "key_prefix": "AI",
+        "key_help_url": "https://aistudio.google.com/apikey"
+    }
+}
+
+async def validate_provider_key(provider: str, api_key: str) -> bool:
+    """Validate an API key for a given provider"""
+    config = PROVIDER_CONFIG.get(provider)
+    if not config:
+        return False
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            if provider == "openrouter":
+                resp = await http_client.get(config["validate_url"], headers={"Authorization": f"Bearer {api_key}"})
+                return resp.status_code == 200
+            elif provider == "openai":
+                resp = await http_client.get(config["validate_url"], headers={"Authorization": f"Bearer {api_key}"})
+                return resp.status_code == 200
+            elif provider == "anthropic":
+                resp = await http_client.post(
+                    config["validate_url"],
+                    headers={"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                    json={"model": "claude-3-haiku-20240307", "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]}
+                )
+                return resp.status_code in [200, 400]  # 400 = valid key but bad request is OK
+            elif provider == "google":
+                resp = await http_client.get(f"{config['validate_url']}?key={api_key}")
+                return resp.status_code == 200
+    except:
+        pass
+    return False
+
+async def fetch_provider_models(provider: str, api_key: str) -> list:
+    """Fetch available models for a specific provider"""
+    models = []
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            if provider == "openrouter":
+                resp = await http_client.get(
+                    "https://openrouter.ai/api/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"}
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    provider_names = {
+                        "openai": "OpenAI", "anthropic": "Anthropic", "google": "Google",
+                        "meta-llama": "Meta", "mistralai": "Mistral", "cohere": "Cohere",
+                        "perplexity": "Perplexity", "deepseek": "DeepSeek", "qwen": "Qwen"
+                    }
+                    for m in data.get("data", []):
+                        model_id = m.get("id", "")
+                        pricing = m.get("pricing", {})
+                        prompt_price = float(pricing.get("prompt", "0") or "0")
+                        prov = model_id.split("/")[0] if "/" in model_id else "unknown"
+                        models.append({
+                            "id": model_id,
+                            "name": m.get("name", model_id),
+                            "provider": provider_names.get(prov, prov.title()),
+                            "is_free": prompt_price == 0,
+                            "context_length": m.get("context_length", 0),
+                            "source": "openrouter"
+                        })
+            elif provider == "openai":
+                resp = await http_client.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"}
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    chat_models = [m for m in data.get("data", []) if "gpt" in m.get("id", "").lower()]
+                    for m in chat_models:
+                        models.append({
+                            "id": f"openai/{m['id']}",
+                            "name": m["id"].replace("-", " ").title(),
+                            "provider": "OpenAI (Direct)",
+                            "is_free": False,
+                            "context_length": 128000,
+                            "source": "openai"
+                        })
+            elif provider == "anthropic":
+                # Anthropic doesn't have a models list endpoint, hardcode known models
+                for m in [
+                    {"id": "claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet", "ctx": 200000},
+                    {"id": "claude-3-haiku-20240307", "name": "Claude 3 Haiku", "ctx": 200000},
+                    {"id": "claude-3-opus-20240229", "name": "Claude 3 Opus", "ctx": 200000},
+                ]:
+                    models.append({
+                        "id": f"anthropic/{m['id']}",
+                        "name": m["name"],
+                        "provider": "Anthropic (Direct)",
+                        "is_free": False,
+                        "context_length": m["ctx"],
+                        "source": "anthropic"
+                    })
+            elif provider == "google":
+                resp = await http_client.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for m in data.get("models", []):
+                        name = m.get("name", "")
+                        display = m.get("displayName", name)
+                        if "gemini" in name.lower():
+                            model_id = name.replace("models/", "")
+                            models.append({
+                                "id": f"google/{model_id}",
+                                "name": display,
+                                "provider": "Google AI (Direct)",
+                                "is_free": False,
+                                "context_length": m.get("inputTokenLimit", 0),
+                                "source": "google"
+                            })
+    except Exception as e:
+        logger.error(f"Error fetching models for {provider}: {str(e)}")
+    return models
+
+async def call_provider_api(provider: str, api_key: str, model: str, messages: list, stream: bool = False, timeout: float = 60.0):
+    """Make an API call to the correct provider. Returns (response_or_stream, error_str)"""
+    # Strip provider prefix from model ID for direct calls
+    raw_model = model.split("/", 1)[1] if "/" in model else model
+    
+    if provider == "openrouter":
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
+                   "HTTP-Referer": "https://buildmap.app", "X-Title": "BuildMap"}
+        body = {"model": model, "messages": messages, "max_tokens": 1500, "temperature": 0.7, "stream": stream}
+        return url, headers, body
+    
+    elif provider == "openai":
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        body = {"model": raw_model, "messages": messages, "max_tokens": 1500, "temperature": 0.7, "stream": stream}
+        return url, headers, body
+    
+    elif provider == "anthropic":
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+        # Convert OpenAI-style messages to Anthropic format
+        system_msg = ""
+        anthropic_msgs = []
+        for m in messages:
+            if m["role"] == "system":
+                system_msg = m["content"]
+            else:
+                anthropic_msgs.append({"role": m["role"], "content": m["content"]})
+        body = {"model": raw_model, "max_tokens": 1500, "messages": anthropic_msgs, "stream": stream}
+        if system_msg:
+            body["system"] = system_msg
+        return url, headers, body
+    
+    elif provider == "google":
+        # Google uses a different format
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{raw_model}:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        # Convert to Google format
+        contents = []
+        system_instruction = None
+        for m in messages:
+            if m["role"] == "system":
+                system_instruction = m["content"]
+            else:
+                role = "user" if m["role"] == "user" else "model"
+                contents.append({"role": role, "parts": [{"text": m["content"]}]})
+        body = {"contents": contents, "generationConfig": {"maxOutputTokens": 1500, "temperature": 0.7}}
+        if system_instruction:
+            body["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+        return url, headers, body
+    
+    return None, None, None
+
+def determine_provider(model_id: str, user_keys: dict) -> tuple:
+    """Determine which provider+key to use for a model. Returns (provider, api_key)"""
+    model_prefix = model_id.split("/")[0] if "/" in model_id else ""
+    
+    # Try direct provider first (cheaper)
+    direct_map = {"openai": "openai", "anthropic": "anthropic", "google": "google"}
+    if model_prefix in direct_map:
+        direct_provider = direct_map[model_prefix]
+        if direct_provider in user_keys:
+            return direct_provider, user_keys[direct_provider]
+    
+    # Fallback to OpenRouter
+    if "openrouter" in user_keys:
+        return "openrouter", user_keys["openrouter"]
+    
+    # Use any available key
+    if user_keys:
+        provider = next(iter(user_keys))
+        return provider, user_keys[provider]
+    
+    return None, None
+
+async def get_user_api_keys(user_id: str) -> dict:
+    """Get all API keys for a user, returns {provider: decrypted_key}"""
+    keys = {}
+    cursor = db.api_keys.find({"user_id": user_id}, {"_id": 0, "provider": 1, "encrypted_key": 1})
+    async for doc in cursor:
+        try:
+            keys[doc["provider"]] = decrypt_api_key(doc["encrypted_key"])
+        except:
+            pass
+    return keys
+
 # ==================== API KEY ROUTES ====================
 
 @api_router.post("/api-keys")
 async def create_api_key(key_data: APIKeyCreate, request: Request):
     user = await get_current_user(request)
     
+    provider = key_data.provider
+    if provider not in PROVIDER_CONFIG:
+        raise HTTPException(status_code=400, detail="مزود غير مدعوم")
+    
     # Validate API key
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as http_client:
-            response = await http_client.get(
-                "https://openrouter.ai/api/v1/models",
-                headers={"Authorization": f"Bearer {key_data.api_key}"}
-            )
-            if response.status_code != 200:
-                raise HTTPException(status_code=400, detail=get_error_message("api_key_invalid"))
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=400, detail=get_error_message("ai_timeout"))
-    except Exception as e:
-        logger.error(f"API key validation error: {str(e)}")
+    valid = await validate_provider_key(provider, key_data.api_key)
+    if not valid:
         raise HTTPException(status_code=400, detail=get_error_message("api_key_invalid"))
     
-    await db.api_keys.delete_many({"user_id": user["id"]})
+    # Delete existing key for this provider only
+    await db.api_keys.delete_many({"user_id": user["id"], "provider": provider})
     
     encrypted = encrypt_api_key(key_data.api_key)
     key_doc = {
         "user_id": user["id"],
         "encrypted_key": encrypted,
-        "provider": "openrouter",
+        "provider": provider,
         "default_model": key_data.default_model,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -442,31 +677,70 @@ async def create_api_key(key_data: APIKeyCreate, request: Request):
     
     return {
         "id": str(result.inserted_id),
-        "provider": "openrouter",
+        "provider": provider,
         "default_model": key_data.default_model,
         "created_at": key_doc["created_at"],
         "has_key": True
     }
 
 @api_router.get("/api-keys")
-async def get_api_key(request: Request):
+async def get_api_keys(request: Request):
     user = await get_current_user(request)
-    key = await db.api_keys.find_one({"user_id": user["id"]}, {"_id": 1, "provider": 1, "default_model": 1, "created_at": 1})
-    if not key:
-        return {"has_key": False}
+    keys = await db.api_keys.find(
+        {"user_id": user["id"]},
+        {"_id": 1, "provider": 1, "default_model": 1, "created_at": 1}
+    ).to_list(10)
+    
+    if not keys:
+        return {"has_key": False, "providers": []}
+    
+    providers = []
+    for k in keys:
+        providers.append({
+            "id": str(k["_id"]),
+            "provider": k["provider"],
+            "provider_name": PROVIDER_CONFIG.get(k["provider"], {}).get("name", k["provider"]),
+            "default_model": k["default_model"],
+            "created_at": k["created_at"]
+        })
+    
     return {
-        "id": str(key["_id"]),
-        "provider": key["provider"],
-        "default_model": key["default_model"],
-        "created_at": key["created_at"],
-        "has_key": True
+        "has_key": True,
+        "providers": providers,
+        # Backward compat
+        "provider": keys[0]["provider"],
+        "default_model": keys[0]["default_model"],
+        "id": str(keys[0]["_id"]),
+        "created_at": keys[0]["created_at"]
     }
 
 @api_router.delete("/api-keys")
 async def delete_api_key(request: Request):
     user = await get_current_user(request)
     await db.api_keys.delete_many({"user_id": user["id"]})
-    return {"message": "تم حذف المفتاح"}
+    return {"message": "تم حذف جميع المفاتيح"}
+
+@api_router.delete("/api-keys/{provider}")
+async def delete_api_key_by_provider(provider: str, request: Request):
+    user = await get_current_user(request)
+    result = await db.api_keys.delete_many({"user_id": user["id"], "provider": provider})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="المفتاح غير موجود")
+    return {"message": f"تم حذف مفتاح {provider}"}
+
+@api_router.get("/providers")
+async def get_providers():
+    """Get available API provider configurations"""
+    return [
+        {
+            "id": pid,
+            "name": cfg["name"],
+            "name_ar": cfg["name_ar"],
+            "key_prefix": cfg["key_prefix"],
+            "key_help_url": cfg["key_help_url"]
+        }
+        for pid, cfg in PROVIDER_CONFIG.items()
+    ]
 
 # ==================== DYNAMIC MODELS ====================
 
@@ -474,50 +748,30 @@ async def delete_api_key(request: Request):
 async def get_available_models(request: Request):
     try:
         user = await get_current_user(request)
-        api_key_doc = await db.api_keys.find_one({"user_id": user["id"]})
+        user_keys = await get_user_api_keys(user["id"])
         
-        if api_key_doc:
-            api_key = decrypt_api_key(api_key_doc["encrypted_key"])
+        if user_keys:
+            all_models = []
+            seen_ids = set()
             
-            async with httpx.AsyncClient(timeout=15.0) as http_client:
-                response = await http_client.get(
-                    "https://openrouter.ai/api/v1/models",
-                    headers={"Authorization": f"Bearer {api_key}"}
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    models = []
-                    for model in data.get("data", []):
-                        model_id = model.get("id", "")
-                        name = model.get("name", model_id)
-                        pricing = model.get("pricing", {})
-                        prompt_price = float(pricing.get("prompt", "0") or "0")
-                        is_free = prompt_price == 0
-                        context_length = model.get("context_length", 0)
-                        provider = model_id.split("/")[0] if "/" in model_id else "unknown"
-                        provider_names = {
-                            "openai": "OpenAI", "anthropic": "Anthropic", "google": "Google",
-                            "meta-llama": "Meta", "mistralai": "Mistral", "cohere": "Cohere",
-                            "perplexity": "Perplexity", "deepseek": "DeepSeek", "qwen": "Qwen"
-                        }
-                        models.append({
-                            "id": model_id,
-                            "name": name,
-                            "provider": provider_names.get(provider, provider.title()),
-                            "is_free": is_free,
-                            "context_length": context_length
-                        })
-                    models.sort(key=lambda x: (not x["is_free"], x["provider"], x["name"]))
-                    return models
+            for provider, api_key in user_keys.items():
+                provider_models = await fetch_provider_models(provider, api_key)
+                for m in provider_models:
+                    if m["id"] not in seen_ids:
+                        seen_ids.add(m["id"])
+                        all_models.append(m)
+            
+            if all_models:
+                all_models.sort(key=lambda x: (not x.get("is_free", False), x.get("provider", ""), x.get("name", "")))
+                return all_models
     except:
         pass
     
     return [
-        {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "OpenAI", "is_free": False, "context_length": 128000},
-        {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI", "is_free": False, "context_length": 128000},
-        {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic", "is_free": False, "context_length": 200000},
-        {"id": "google/gemini-pro-1.5", "name": "Gemini Pro 1.5", "provider": "Google", "is_free": False, "context_length": 1000000},
+        {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "OpenAI", "is_free": False, "context_length": 128000, "source": "default"},
+        {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI", "is_free": False, "context_length": 128000, "source": "default"},
+        {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic", "is_free": False, "context_length": 200000, "source": "default"},
+        {"id": "google/gemini-pro-1.5", "name": "Gemini Pro 1.5", "provider": "Google", "is_free": False, "context_length": 1000000, "source": "default"},
     ]
 
 # ==================== PROJECT ROUTES ====================
@@ -749,11 +1003,11 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
     if not project:
         raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
-    api_key_doc = await db.api_keys.find_one({"user_id": user["id"]})
-    if not api_key_doc:
+    # Determine provider and key for the selected model
+    user_keys = await get_user_api_keys(user["id"])
+    provider, api_key = determine_provider(project["selected_model"], user_keys)
+    if not provider:
         raise HTTPException(status_code=400, detail=get_error_message("api_key_required"))
-    
-    api_key = decrypt_api_key(api_key_doc["encrypted_key"])
     
     # Save user message
     user_message = {
@@ -854,22 +1108,9 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
         messages_for_api.append({"role": msg["role"], "content": msg["content"]})
     
     try:
+        url, headers, body = await call_provider_api(provider, api_key, project["selected_model"], messages_for_api, stream=False)
         async with httpx.AsyncClient(timeout=60.0) as http_client:
-            response = await http_client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://buildmap.app",
-                    "X-Title": "BuildMap"
-                },
-                json={
-                    "model": project["selected_model"],
-                    "messages": messages_for_api,
-                    "max_tokens": 1500,
-                    "temperature": 0.7
-                }
-            )
+            response = await http_client.post(url, headers=headers, json=body)
             
             if response.status_code == 401:
                 raise HTTPException(status_code=400, detail=get_error_message("api_key_invalid"))
@@ -881,7 +1122,13 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
                 raise HTTPException(status_code=500, detail=get_error_message("ai_connection_error"))
             
             result = response.json()
-            assistant_content = result["choices"][0]["message"]["content"]
+            # Extract content based on provider format
+            if provider == "anthropic":
+                assistant_content = result.get("content", [{}])[0].get("text", "")
+            elif provider == "google":
+                assistant_content = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+            else:
+                assistant_content = result["choices"][0]["message"]["content"]
             
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail=get_error_message("ai_timeout"))
@@ -929,11 +1176,13 @@ async def build_chat_context(project_id: str, user_id: str, message_content: str
     if not project:
         return None
     
-    api_key_doc = await db.api_keys.find_one({"user_id": user_id})
-    if not api_key_doc:
+    user_keys = await get_user_api_keys(user_id)
+    if not user_keys:
         return None
     
-    api_key = decrypt_api_key(api_key_doc["encrypted_key"])
+    provider, api_key = determine_provider(project["selected_model"], user_keys)
+    if not provider:
+        return None
     
     # Save user message
     user_message = {
@@ -1024,6 +1273,7 @@ async def build_chat_context(project_id: str, user_id: str, message_content: str
     
     return {
         "api_key": api_key,
+        "provider": provider,
         "model": project["selected_model"],
         "messages_for_api": messages_for_api,
         "project": project,
@@ -1055,23 +1305,10 @@ async def stream_message(project_id: str, message_data: MessageCreate, request: 
         full_content = ""
         try:
             async with httpx.AsyncClient(timeout=120.0) as http_client:
-                async with http_client.stream(
-                    "POST",
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {ctx['api_key']}",
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": "https://buildmap.app",
-                        "X-Title": "BuildMap"
-                    },
-                    json={
-                        "model": ctx["model"],
-                        "messages": ctx["messages_for_api"],
-                        "max_tokens": 1500,
-                        "temperature": 0.7,
-                        "stream": True
-                    }
-                ) as response:
+                url, headers, body = await call_provider_api(
+                    ctx["provider"], ctx["api_key"], ctx["model"], ctx["messages_for_api"], stream=True
+                )
+                async with http_client.stream("POST", url, headers=headers, json=body) as response:
                     if response.status_code != 200:
                         error_body = b""
                         async for chunk in response.aiter_bytes():
@@ -1086,21 +1323,57 @@ async def stream_message(project_id: str, message_data: MessageCreate, request: 
                         yield f"data: {json.dumps({'type': 'error', 'content': get_error_message(error_msg)})}\n\n"
                         return
                     
-                    async for line in response.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        data_str = line[6:]
-                        if data_str.strip() == "[DONE]":
-                            break
+                    # Handle different provider streaming formats
+                    if ctx["provider"] == "google":
+                        # Google doesn't support streaming the same way, read full response
+                        full_body = b""
+                        async for chunk in response.aiter_bytes():
+                            full_body += chunk
                         try:
-                            chunk_data = json.loads(data_str)
-                            delta = chunk_data.get("choices", [{}])[0].get("delta", {})
-                            content_piece = delta.get("content", "")
-                            if content_piece:
-                                full_content += content_piece
-                                yield f"data: {json.dumps({'type': 'chunk', 'content': content_piece})}\n\n"
-                        except json.JSONDecodeError:
-                            continue
+                            data = json.loads(full_body)
+                            text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                            if text:
+                                full_content = text
+                                yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
+                        except:
+                            yield f"data: {json.dumps({'type': 'error', 'content': get_error_message('ai_connection_error')})}\n\n"
+                            return
+                    elif ctx["provider"] == "anthropic":
+                        async for line in response.aiter_lines():
+                            if not line.startswith("data: "):
+                                continue
+                            data_str = line[6:]
+                            if data_str.strip() == "[DONE]":
+                                break
+                            try:
+                                chunk_data = json.loads(data_str)
+                                event_type = chunk_data.get("type", "")
+                                if event_type == "content_block_delta":
+                                    text = chunk_data.get("delta", {}).get("text", "")
+                                    if text:
+                                        full_content += text
+                                        yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
+                                elif event_type == "message_stop":
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+                    else:
+                        # OpenRouter / OpenAI format
+                        async for line in response.aiter_lines():
+                            if not line.startswith("data: "):
+                                continue
+                            data_str = line[6:]
+                            if data_str.strip() == "[DONE]":
+                                break
+                            try:
+                                chunk_data = json.loads(data_str)
+                                delta = chunk_data.get("choices", [{}])[0].get("delta", {})
+                                content_piece = delta.get("content", "")
+                                if content_piece:
+                                    full_content += content_piece
+                                    yield f"data: {json.dumps({'type': 'chunk', 'content': content_piece})}\n\n"
+                            except json.JSONDecodeError:
+                                continue
             
             # Save the complete assistant message
             ready_to_generate = "[READY_TO_GENERATE]" in full_content
@@ -1162,7 +1435,10 @@ async def generate_outputs(project_id: str, request: Request):
     if not api_key_doc:
         raise HTTPException(status_code=400, detail=get_error_message("api_key_required"))
     
-    api_key = decrypt_api_key(api_key_doc["encrypted_key"])
+    user_keys = await get_user_api_keys(user["id"])
+    provider, api_key = determine_provider(project["selected_model"], user_keys)
+    if not provider:
+        raise HTTPException(status_code=400, detail=get_error_message("api_key_required"))
     
     messages = await db.messages.find(
         {"project_id": project_id},
@@ -1289,23 +1565,27 @@ async def generate_outputs(project_id: str, request: Request):
     async with httpx.AsyncClient(timeout=120.0) as http_client:
         for key, prompt in output_prompts.items():
             try:
-                response = await http_client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": project["selected_model"],
-                        "messages": [{"role": "user", "content": prompt.format(conversation=conversation_text, analysis_context=analysis_context)}],
-                        "max_tokens": 3000,
-                        "temperature": 0.5
-                    }
-                )
+                gen_messages = [{"role": "user", "content": prompt.format(conversation=conversation_text, analysis_context=analysis_context)}]
+                url, headers, body = await call_provider_api(provider, api_key, project["selected_model"], gen_messages, stream=False)
+                # Override max_tokens for generation
+                if "max_tokens" in body:
+                    body["max_tokens"] = 3000
+                if "generationConfig" in body:
+                    body["generationConfig"]["maxOutputTokens"] = 3000
+                body["temperature"] = 0.5 if "temperature" in body else body.get("temperature", 0.5)
+                if "generationConfig" in body:
+                    body["generationConfig"]["temperature"] = 0.5
+                
+                response = await http_client.post(url, headers=headers, json=body)
                 
                 if response.status_code == 200:
                     result = response.json()
-                    outputs[key] = result["choices"][0]["message"]["content"]
+                    if provider == "anthropic":
+                        outputs[key] = result.get("content", [{}])[0].get("text", "تعذر توليد هذا المحتوى")
+                    elif provider == "google":
+                        outputs[key] = result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "تعذر توليد هذا المحتوى")
+                    else:
+                        outputs[key] = result["choices"][0]["message"]["content"]
                 else:
                     outputs[key] = "تعذر توليد هذا المحتوى"
             except Exception as e:
