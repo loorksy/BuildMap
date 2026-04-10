@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -15,6 +15,7 @@ import {
 } from '../components/ui/select';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Badge } from '../components/ui/badge';
+import { Progress } from '../components/ui/progress';
 import { 
   ArrowRight, 
   Send, 
@@ -31,12 +32,59 @@ import {
   Check,
   Sun,
   Moon,
-  AlertCircle,
-  MessageSquare
+  MessageSquare,
+  Globe,
+  Smartphone,
+  Server,
+  Layers,
+  Users,
+  Building,
+  ShoppingCart,
+  Clock,
+  MessageCircle,
+  Database,
+  Zap,
+  LogIn,
+  LayoutDashboard,
+  Bell,
+  Search,
+  Terminal,
+  Triangle,
+  Plus,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  Cpu
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Icon mapping for suggestions
+const iconMap = {
+  'globe': Globe,
+  'smartphone': Smartphone,
+  'server': Server,
+  'layers': Layers,
+  'users': Users,
+  'building': Building,
+  'code': Code,
+  'shopping-cart': ShoppingCart,
+  'clock': Clock,
+  'message-circle': MessageCircle,
+  'database': Database,
+  'zap': Zap,
+  'log-in': LogIn,
+  'layout-dashboard': LayoutDashboard,
+  'bell': Bell,
+  'search': Search,
+  'message-square': MessageSquare,
+  'bar-chart': BarChart3,
+  'terminal': Terminal,
+  'triangle': Triangle,
+  'sparkles': Sparkles,
+  'plus': Plus
+};
 
 const ProjectPage = () => {
   const { projectId } = useParams();
@@ -54,9 +102,13 @@ const ProjectPage = () => {
   const [sending, setSending] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [messageInput, setMessageInput] = useState('');
-  const [readyToGenerate, setReadyToGenerate] = useState(false);
   const [copiedTab, setCopiedTab] = useState(null);
   const [activeTab, setActiveTab] = useState('chat');
+  
+  // Vibe Coding states
+  const [analysis, setAnalysis] = useState(null);
+  const [showPreview, setShowPreview] = useState(true);
+  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     fetchProjectData();
@@ -78,7 +130,15 @@ const ProjectPage = () => {
       setMessages(messagesRes.data);
       setModels(modelsRes.data);
       
-      // Try to fetch outputs
+      // Fetch analysis
+      try {
+        const analysisRes = await axios.get(`${API}/projects/${projectId}/analysis`);
+        setAnalysis(analysisRes.data);
+      } catch (e) {
+        console.log('Analysis not available');
+      }
+      
+      // Fetch outputs
       try {
         const outputsRes = await axios.get(`${API}/projects/${projectId}/outputs`);
         setOutputs(outputsRes.data);
@@ -98,14 +158,15 @@ const ProjectPage = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSendMessage = async (e) => {
+  const handleSendMessage = async (e, quickMessage = null) => {
     e?.preventDefault();
-    if (!messageInput.trim() || sending) return;
+    const content = quickMessage || messageInput;
+    if (!content.trim() || sending) return;
 
     const userMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: messageInput,
+      content: content,
       created_at: new Date().toISOString()
     };
 
@@ -115,24 +176,36 @@ const ProjectPage = () => {
 
     try {
       const response = await axios.post(`${API}/projects/${projectId}/messages`, {
-        content: userMessage.content
+        content: content
       });
 
       setMessages(prev => [...prev, response.data]);
       
+      // Update analysis
+      if (response.data.analysis) {
+        setAnalysis(response.data.analysis);
+      }
+      
       if (response.data.ready_to_generate) {
-        setReadyToGenerate(true);
-        toast.success('المساعد جاهز لتوليد المخرجات');
+        toast.success('المشروع جاهز لتوليد المخرجات!', {
+          action: {
+            label: 'توليد الآن',
+            onClick: handleGenerateOutputs
+          }
+        });
       }
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error(error.response?.data?.detail || 'حدث خطأ في إرسال الرسالة');
-      // Remove the optimistic message
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
     } finally {
       setSending(false);
       inputRef.current?.focus();
     }
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    handleSendMessage(null, suggestion.text);
   };
 
   const handleGenerateOutputs = async () => {
@@ -141,7 +214,7 @@ const ProjectPage = () => {
       const response = await axios.post(`${API}/projects/${projectId}/generate`);
       setOutputs(response.data);
       setActiveTab('frontend-readme');
-      toast.success('تم توليد المخرجات بنجاح');
+      toast.success('تم توليد المخرجات بنجاح!');
     } catch (error) {
       console.error('Error generating outputs:', error);
       toast.error(error.response?.data?.detail || 'حدث خطأ في توليد المخرجات');
@@ -152,9 +225,7 @@ const ProjectPage = () => {
 
   const handleModelChange = async (model) => {
     try {
-      await axios.patch(`${API}/projects/${projectId}`, {
-        selected_model: model
-      });
+      await axios.patch(`${API}/projects/${projectId}`, { selected_model: model });
       setProject(prev => ({ ...prev, selected_model: model }));
       toast.success('تم تغيير النموذج');
     } catch (error) {
@@ -194,12 +265,8 @@ const ProjectPage = () => {
       if (line.startsWith('- ')) {
         return <li key={i} className="mr-4 mb-1 text-muted-foreground">{line.slice(2)}</li>;
       }
-      if (line.startsWith('```')) {
-        return null;
-      }
-      if (line.trim() === '') {
-        return <br key={i} />;
-      }
+      if (line.startsWith('```')) return null;
+      if (line.trim() === '') return <br key={i} />;
       return <p key={i} className="mb-2 text-muted-foreground leading-relaxed">{line}</p>;
     });
   };
@@ -217,11 +284,7 @@ const ProjectPage = () => {
         </div>
       );
 
-      return (
-        <div className="p-4">
-          {renderNode(parsed)}
-        </div>
-      );
+      return <div className="p-4">{renderNode(parsed)}</div>;
     } catch (e) {
       return <pre className="bg-muted p-4 overflow-x-auto text-sm rounded-xl">{data}</pre>;
     }
@@ -244,8 +307,10 @@ const ProjectPage = () => {
     { id: 'plan', label: 'الخطة', icon: ListChecks, content: outputs?.plan, filename: 'Plan.md' },
     { id: 'skills', label: 'المهارات', icon: Award, content: outputs?.skills, filename: 'Skills.md' },
     { id: 'evaluation', label: 'التقييم', icon: BarChart3, content: outputs?.evaluation, filename: 'Evaluation.md' },
-    { id: 'mindmap', label: 'خريطة ذهنية', icon: GitBranch, content: outputs?.mindmap, filename: 'MindMap.json' },
+    { id: 'mindmap', label: 'خريطة', icon: GitBranch, content: outputs?.mindmap, filename: 'MindMap.json' },
   ];
+
+  const currentStageIndex = analysis?.stages?.findIndex(s => s.id === analysis?.current_stage) || 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col" dir="rtl">
@@ -253,31 +318,23 @@ const ProjectPage = () => {
       
       {/* Header */}
       <header className="glass border-b border-border sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors p-2 hover:bg-muted rounded-lg">
               <ArrowRight className="w-5 h-5" />
             </Link>
             <div>
               <h1 className="text-lg font-bold text-foreground">{project?.title}</h1>
-              <p className="text-sm text-muted-foreground hidden sm:block truncate max-w-xs">
-                {project?.idea}
-              </p>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-xl"
-            >
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-xl">
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </Button>
             
             <Select value={project?.selected_model} onValueChange={handleModelChange}>
-              <SelectTrigger className="w-44 rounded-xl text-sm" data-testid="project-model-select">
+              <SelectTrigger className="w-40 rounded-xl text-sm" data-testid="project-model-select">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="max-h-80">
@@ -287,9 +344,7 @@ const ProjectPage = () => {
                       <div className="flex items-center gap-2">
                         <span>{model.name}</span>
                         {model.is_free && (
-                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 text-xs border-0">
-                            مجاني
-                          </Badge>
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 text-xs border-0">مجاني</Badge>
                         )}
                       </div>
                     </SelectItem>
@@ -301,11 +356,46 @@ const ProjectPage = () => {
         </div>
       </header>
 
+      {/* Progress Bar */}
+      {analysis && (
+        <div className="bg-card border-b border-border px-4 py-3">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-foreground">تقدم المحادثة</span>
+              <span className="text-sm text-primary font-bold">{Math.round(analysis.total_progress)}%</span>
+            </div>
+            <Progress value={analysis.total_progress} className="h-2 mb-3" />
+            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
+              {analysis.stages?.slice(0, -1).map((stage, idx) => {
+                const isCompleted = analysis.completed_stages?.includes(stage.id);
+                const isCurrent = analysis.current_stage === stage.id;
+                return (
+                  <div 
+                    key={stage.id}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                      isCompleted 
+                        ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
+                        : isCurrent 
+                          ? 'bg-primary/20 text-primary ring-2 ring-primary/30' 
+                          : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {isCompleted && <Check className="w-3 h-3" />}
+                    {isCurrent && <Cpu className="w-3 h-3 animate-pulse" />}
+                    {stage.name}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:flex-row">
+      <div className="flex-1 flex">
         {/* Chat Section */}
-        <div className="flex-1 flex flex-col border-l border-border bg-card">
-          {/* Chat Messages */}
+        <div className="flex-1 flex flex-col">
+          {/* Messages */}
           <ScrollArea className="flex-1 p-4">
             <div className="max-w-3xl mx-auto space-y-4">
               {messages.map((message) => (
@@ -315,9 +405,7 @@ const ProjectPage = () => {
                 >
                   <div
                     className={`max-w-[85%] p-4 ${
-                      message.role === 'user'
-                        ? 'chat-bubble-user'
-                        : 'chat-bubble-assistant'
+                      message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'
                     }`}
                     data-testid={`message-${message.role}`}
                   >
@@ -345,38 +433,66 @@ const ProjectPage = () => {
             </div>
           </ScrollArea>
 
+          {/* Quick Suggestions */}
+          {analysis?.suggestions && !sending && (
+            <div className="px-4 py-3 border-t border-border bg-muted/30">
+              <div className="max-w-3xl mx-auto">
+                <p className="text-xs text-muted-foreground mb-2">اقتراحات سريعة:</p>
+                <div className="flex flex-wrap gap-2">
+                  {analysis.suggestions.map((suggestion, idx) => {
+                    const IconComponent = iconMap[suggestion.icon] || Sparkles;
+                    return (
+                      <Button
+                        key={idx}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className="rounded-full text-xs h-8 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                        data-testid={`suggestion-${idx}`}
+                      >
+                        <IconComponent className="w-3 h-3 ml-1" />
+                        {suggestion.text}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Generate Button */}
-          {(readyToGenerate || outputs) && !generating && (
-            <div className="p-4 border-t border-border bg-primary/5">
+          {(analysis?.ready_to_generate || analysis?.total_progress >= 60 || outputs) && !generating && (
+            <div className="p-4 border-t border-border bg-gradient-to-r from-primary/10 to-blue-500/10">
               <div className="max-w-3xl mx-auto flex items-center justify-between">
                 <div className="flex items-center gap-2 text-primary">
                   <Sparkles className="w-5 h-5" />
                   <span className="font-medium">
-                    {outputs ? 'يمكنك إعادة توليد المخرجات' : 'المساعد جاهز لتوليد المخرجات'}
+                    {outputs ? 'المخرجات جاهزة - يمكنك إعادة التوليد' : 'جاهز لتوليد ملفات المشروع!'}
                   </span>
                 </div>
                 <Button
                   onClick={handleGenerateOutputs}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-lg shadow-primary/25"
                   data-testid="generate-outputs-btn"
                 >
+                  <Sparkles className="w-4 h-4 ml-2" />
                   {outputs ? 'إعادة التوليد' : 'توليد المخرجات'}
                 </Button>
               </div>
             </div>
           )}
 
-          {/* Generating Indicator */}
+          {/* Generating */}
           {generating && (
             <div className="p-4 border-t border-border bg-primary">
               <div className="max-w-3xl mx-auto flex items-center justify-center gap-3 text-primary-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>جاري توليد المخرجات... قد يستغرق هذا دقيقة أو أكثر</span>
+                <span>جاري توليد 6 ملفات... قد يستغرق دقيقة</span>
               </div>
             </div>
           )}
 
-          {/* Chat Input */}
+          {/* Input */}
           <div className="p-4 border-t border-border bg-background">
             <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
               <div className="flex gap-2">
@@ -384,7 +500,7 @@ const ProjectPage = () => {
                   ref={inputRef}
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
-                  placeholder="اكتب رسالتك هنا..."
+                  placeholder="اكتب رسالتك أو اختر من الاقتراحات..."
                   className="flex-1 h-12 rounded-xl border-border focus:ring-primary focus:border-primary"
                   disabled={sending || generating}
                   data-testid="chat-input"
@@ -402,77 +518,145 @@ const ProjectPage = () => {
           </div>
         </div>
 
-        {/* Outputs Panel */}
-        {outputs && (
-          <div className="lg:w-[500px] border-t lg:border-t-0 border-border bg-background">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-              <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent p-0 h-auto flex-wrap">
-                <TabsTrigger 
-                  value="chat"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 rounded-t-lg"
-                  data-testid="tab-chat"
-                >
-                  <MessageSquare className="w-4 h-4 ml-1" />
-                  المحادثة
-                </TabsTrigger>
-                {outputTabs.map((tab) => (
-                  <TabsTrigger
-                    key={tab.id}
-                    value={tab.id}
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 py-3 rounded-t-lg"
-                    data-testid={`tab-${tab.id}`}
-                  >
-                    <tab.icon className="w-4 h-4 ml-1" />
-                    <span className="hidden sm:inline">{tab.label}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              
-              <TabsContent value="chat" className="flex-1 m-0 p-4">
-                <div className="text-center text-muted-foreground py-8">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>استخدم المحادثة على اليمين للتفاعل مع المساعد</p>
+        {/* Side Panel - Project Summary & Files Preview */}
+        <div className="w-80 border-r border-border bg-card hidden lg:flex flex-col">
+          {/* Project Summary */}
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                ملخص المشروع
+              </h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowPreview(!showPreview)}
+                className="h-6 w-6 p-0"
+              >
+                {showPreview ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </Button>
+            </div>
+            
+            {showPreview && analysis?.project_summary && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
+                    {analysis.project_summary.type}
+                  </Badge>
                 </div>
-              </TabsContent>
-              
-              {outputTabs.map((tab) => (
-                <TabsContent key={tab.id} value={tab.id} className="flex-1 m-0 overflow-hidden">
-                  <div className="h-full flex flex-col">
-                    <div className="flex items-center justify-end gap-2 p-3 border-b border-border">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopy(tab.content, tab.id)}
-                        className="text-muted-foreground rounded-lg"
-                        data-testid={`copy-${tab.id}`}
-                      >
-                        {copiedTab === tab.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownload(tab.content, tab.filename)}
-                        className="text-muted-foreground rounded-lg"
-                        data-testid={`download-${tab.id}`}
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <ScrollArea className="flex-1 p-4">
-                      {tab.id === 'mindmap' ? (
-                        renderMindMap(tab.content)
-                      ) : (
-                        <div className="prose prose-sm max-w-none">
-                          {renderMarkdown(tab.content)}
-                        </div>
-                      )}
-                    </ScrollArea>
+                
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">الفكرة:</p>
+                  <p className="text-sm text-foreground">{analysis.project_summary.idea_summary}</p>
+                </div>
+                
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">الميزات المكتشفة:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {analysis.project_summary.features?.slice(0, 4).map((f, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {f.length > 20 ? f.slice(0, 20) + '...' : f}
+                      </Badge>
+                    ))}
                   </div>
-                </TabsContent>
-              ))}
-            </Tabs>
+                </div>
+                
+                {analysis.project_summary.technologies?.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">التقنيات:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {analysis.project_summary.technologies.map((t, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border-0">
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Files Preview */}
+          {outputs && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="p-4 border-b border-border">
+                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  معاينة الملفات
+                </h3>
+              </div>
+              
+              <div className="p-2 border-b border-border">
+                <div className="grid grid-cols-3 gap-1">
+                  {outputTabs.map((tab) => (
+                    <Button
+                      key={tab.id}
+                      variant={previewFile === tab.id ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setPreviewFile(previewFile === tab.id ? null : tab.id)}
+                      className={`text-xs h-8 rounded-lg ${previewFile === tab.id ? 'bg-primary text-primary-foreground' : ''}`}
+                    >
+                      <tab.icon className="w-3 h-3 ml-1" />
+                      {tab.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              
+              {previewFile && (
+                <ScrollArea className="flex-1 p-4">
+                  <div className="flex items-center justify-end gap-2 mb-3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopy(outputTabs.find(t => t.id === previewFile)?.content, previewFile)}
+                      className="h-7 text-xs"
+                    >
+                      {copiedTab === previewFile ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const tab = outputTabs.find(t => t.id === previewFile);
+                        handleDownload(tab?.content, tab?.filename);
+                      }}
+                      className="h-7 text-xs"
+                    >
+                      <Download className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <div className="prose prose-sm max-w-none text-xs">
+                    {previewFile === 'mindmap' 
+                      ? renderMindMap(outputTabs.find(t => t.id === previewFile)?.content)
+                      : renderMarkdown(outputTabs.find(t => t.id === previewFile)?.content)
+                    }
+                  </div>
+                </ScrollArea>
+              )}
+              
+              {!previewFile && (
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <p className="text-sm text-muted-foreground text-center">
+                    اختر ملفاً لمعاينته
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {!outputs && (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="text-center">
+                <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">
+                  ستظهر الملفات هنا بعد التوليد
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

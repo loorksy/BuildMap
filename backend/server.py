@@ -8,7 +8,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
@@ -19,6 +19,8 @@ from cryptography.fernet import Fernet
 import base64
 import hashlib
 import secrets
+import json
+import re
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -53,22 +55,9 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-class UserResponse(BaseModel):
-    id: str
-    email: str
-    name: str
-    created_at: str
-
 class APIKeyCreate(BaseModel):
     api_key: str
-    default_model: str = "openai/gpt-4"
-
-class APIKeyResponse(BaseModel):
-    id: str
-    provider: str
-    default_model: str
-    created_at: str
-    has_key: bool
+    default_model: str = "openai/gpt-4o"
 
 class ProjectCreate(BaseModel):
     title: str
@@ -78,34 +67,172 @@ class ProjectUpdate(BaseModel):
     title: Optional[str] = None
     selected_model: Optional[str] = None
 
-class ProjectResponse(BaseModel):
-    id: str
-    title: str
-    idea: str
-    selected_model: str
-    created_at: str
-    updated_at: str
-    has_outputs: bool
-
 class MessageCreate(BaseModel):
     content: str
 
-class MessageResponse(BaseModel):
-    id: str
-    role: str
-    content: str
-    created_at: str
+# ==================== CONVERSATION ANALYSIS ====================
 
-class OutputResponse(BaseModel):
-    id: str
-    project_id: str
-    frontend_readme: Optional[str] = None
-    backend_readme: Optional[str] = None
-    plan: Optional[str] = None
-    skills: Optional[str] = None
-    evaluation: Optional[str] = None
-    mindmap: Optional[str] = None
-    created_at: str
+CONVERSATION_STAGES = [
+    {"id": "idea", "name": "فهم الفكرة", "questions": ["نوع المشروع", "الوصف الأساسي"]},
+    {"id": "audience", "name": "الفئة المستهدفة", "questions": ["من المستخدمون", "احتياجاتهم"]},
+    {"id": "problem", "name": "المشكلة والحل", "questions": ["المشكلة المراد حلها", "كيف يحلها"]},
+    {"id": "features", "name": "الميزات", "questions": ["الميزات الرئيسية", "الميزات الإضافية"]},
+    {"id": "technical", "name": "المتطلبات التقنية", "questions": ["التقنيات", "قاعدة البيانات", "APIs"]},
+    {"id": "ready", "name": "جاهز للتوليد", "questions": []}
+]
+
+def analyze_conversation_progress(messages: List[dict], idea: str) -> dict:
+    """Analyze conversation to determine progress and extract project info"""
+    
+    conversation_text = " ".join([m["content"] for m in messages]).lower()
+    
+    # Keywords for each stage
+    stage_keywords = {
+        "idea": ["تطبيق", "موقع", "نظام", "منصة", "برنامج", "api", "ويب", "موبايل", "web", "mobile", "app"],
+        "audience": ["مستخدم", "عميل", "شركة", "مطور", "طالب", "موظف", "تاجر", "بائع", "مشتري"],
+        "problem": ["مشكلة", "حل", "تحدي", "صعوبة", "يحتاج", "يريد", "هدف", "غرض"],
+        "features": ["ميزة", "خاصية", "وظيفة", "يمكن", "يستطيع", "إضافة", "تسجيل", "بحث", "عرض", "إرسال"],
+        "technical": ["قاعدة بيانات", "api", "react", "node", "python", "mongodb", "تقنية", "لغة برمجة"]
+    }
+    
+    # Calculate progress for each stage
+    stage_progress = {}
+    for stage_id, keywords in stage_keywords.items():
+        matches = sum(1 for kw in keywords if kw in conversation_text)
+        stage_progress[stage_id] = min(100, (matches / max(len(keywords) * 0.3, 1)) * 100)
+    
+    # Determine current stage
+    completed_stages = []
+    current_stage = "idea"
+    
+    for stage in CONVERSATION_STAGES[:-1]:  # Exclude 'ready'
+        if stage_progress.get(stage["id"], 0) >= 50:
+            completed_stages.append(stage["id"])
+            current_stage_idx = CONVERSATION_STAGES.index(stage) + 1
+            if current_stage_idx < len(CONVERSATION_STAGES):
+                current_stage = CONVERSATION_STAGES[current_stage_idx]["id"]
+    
+    # Calculate overall progress
+    total_progress = len(completed_stages) / (len(CONVERSATION_STAGES) - 1) * 100
+    
+    # Extract project summary
+    project_summary = extract_project_summary(messages, idea)
+    
+    # Check if ready to generate
+    ready_to_generate = total_progress >= 60 and len(messages) >= 4
+    
+    return {
+        "current_stage": current_stage,
+        "completed_stages": completed_stages,
+        "stage_progress": stage_progress,
+        "total_progress": min(100, total_progress),
+        "ready_to_generate": ready_to_generate,
+        "project_summary": project_summary,
+        "stages": CONVERSATION_STAGES
+    }
+
+def extract_project_summary(messages: List[dict], idea: str) -> dict:
+    """Extract project summary from conversation"""
+    conversation_text = " ".join([m["content"] for m in messages])
+    
+    # Project type detection
+    project_types = {
+        "web_app": ["تطبيق ويب", "موقع", "web app", "website"],
+        "mobile_app": ["تطبيق موبايل", "تطبيق جوال", "mobile app", "ios", "android"],
+        "api": ["api", "خدمة", "service", "backend"],
+        "desktop": ["برنامج سطح المكتب", "desktop"],
+        "system": ["نظام", "منصة", "system", "platform"]
+    }
+    
+    detected_type = "غير محدد"
+    for ptype, keywords in project_types.items():
+        if any(kw in conversation_text.lower() for kw in keywords):
+            type_names = {"web_app": "تطبيق ويب", "mobile_app": "تطبيق موبايل", "api": "API", "desktop": "برنامج سطح مكتب", "system": "نظام متكامل"}
+            detected_type = type_names.get(ptype, ptype)
+            break
+    
+    # Extract features (look for bullet points or numbered items)
+    features = []
+    feature_patterns = [
+        r'[-•]\s*(.+?)(?=[-•]|\n|$)',
+        r'\d+[.)-]\s*(.+?)(?=\d+[.)-]|\n|$)',
+        r'(?:ميزة|خاصية|وظيفة)[:\s]+(.+?)(?=\n|$)'
+    ]
+    
+    for pattern in feature_patterns:
+        matches = re.findall(pattern, conversation_text)
+        features.extend([m.strip() for m in matches if len(m.strip()) > 3 and len(m.strip()) < 100])
+    
+    # Remove duplicates and limit
+    features = list(dict.fromkeys(features))[:6]
+    
+    # Detect technologies
+    tech_keywords = {
+        "React": ["react", "ريأكت"],
+        "Node.js": ["node", "nodejs", "نود"],
+        "Python": ["python", "بايثون"],
+        "MongoDB": ["mongodb", "مونجو"],
+        "PostgreSQL": ["postgres", "postgresql"],
+        "Firebase": ["firebase", "فايربيس"],
+        "Flutter": ["flutter", "فلاتر"],
+        "Next.js": ["next", "nextjs"]
+    }
+    
+    detected_tech = []
+    for tech, keywords in tech_keywords.items():
+        if any(kw in conversation_text.lower() for kw in keywords):
+            detected_tech.append(tech)
+    
+    return {
+        "type": detected_type,
+        "features": features if features else ["لم يتم تحديد الميزات بعد"],
+        "technologies": detected_tech if detected_tech else ["سيتم تحديدها لاحقاً"],
+        "idea_summary": idea[:150] + "..." if len(idea) > 150 else idea
+    }
+
+def get_smart_suggestions(current_stage: str, conversation_text: str) -> List[dict]:
+    """Generate smart suggestions based on current stage"""
+    
+    suggestions = {
+        "idea": [
+            {"text": "تطبيق ويب", "icon": "globe"},
+            {"text": "تطبيق موبايل", "icon": "smartphone"},
+            {"text": "API / Backend", "icon": "server"},
+            {"text": "نظام متكامل", "icon": "layers"}
+        ],
+        "audience": [
+            {"text": "مستخدمين عاديين", "icon": "users"},
+            {"text": "شركات ومؤسسات", "icon": "building"},
+            {"text": "مطورين", "icon": "code"},
+            {"text": "متاجر إلكترونية", "icon": "shopping-cart"}
+        ],
+        "problem": [
+            {"text": "توفير الوقت", "icon": "clock"},
+            {"text": "تسهيل التواصل", "icon": "message-circle"},
+            {"text": "إدارة البيانات", "icon": "database"},
+            {"text": "أتمتة العمليات", "icon": "zap"}
+        ],
+        "features": [
+            {"text": "تسجيل دخول", "icon": "log-in"},
+            {"text": "لوحة تحكم", "icon": "layout-dashboard"},
+            {"text": "إشعارات", "icon": "bell"},
+            {"text": "بحث متقدم", "icon": "search"},
+            {"text": "تقارير", "icon": "bar-chart"},
+            {"text": "دردشة", "icon": "message-square"}
+        ],
+        "technical": [
+            {"text": "React + Node.js", "icon": "code"},
+            {"text": "Next.js", "icon": "triangle"},
+            {"text": "Flutter", "icon": "smartphone"},
+            {"text": "Python + FastAPI", "icon": "terminal"}
+        ],
+        "ready": [
+            {"text": "نعم، ابدأ التوليد", "icon": "sparkles"},
+            {"text": "أريد إضافة المزيد", "icon": "plus"}
+        ]
+    }
+    
+    return suggestions.get(current_stage, suggestions["features"])
 
 # ==================== ERROR MESSAGES ====================
 
@@ -149,7 +276,7 @@ def create_access_token(user_id: str, email: str) -> str:
     payload = {
         "sub": user_id,
         "email": email,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
         "type": "access"
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -157,7 +284,7 @@ def create_access_token(user_id: str, email: str) -> str:
 def create_refresh_token(user_id: str) -> str:
     payload = {
         "sub": user_id,
-        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "exp": datetime.now(timezone.utc) + timedelta(days=30),
         "type": "refresh"
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -229,8 +356,8 @@ async def register(user_data: UserRegister, response: Response):
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=2592000, path="/")
     
     return {
         "id": user_id,
@@ -254,8 +381,8 @@ async def login(user_data: UserLogin, response: Response):
     access_token = create_access_token(user_id, email)
     refresh_token = create_refresh_token(user_id)
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=604800, path="/")
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=2592000, path="/")
     
     return {
         "id": user_id,
@@ -281,7 +408,7 @@ async def get_me(request: Request):
 async def create_api_key(key_data: APIKeyCreate, request: Request):
     user = await get_current_user(request)
     
-    # Validate API key by fetching models
+    # Validate API key
     try:
         async with httpx.AsyncClient(timeout=15.0) as http_client:
             response = await http_client.get(
@@ -296,7 +423,6 @@ async def create_api_key(key_data: APIKeyCreate, request: Request):
         logger.error(f"API key validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=get_error_message("api_key_invalid"))
     
-    # Delete existing key for this user
     await db.api_keys.delete_many({"user_id": user["id"]})
     
     encrypted = encrypt_api_key(key_data.api_key)
@@ -321,12 +447,9 @@ async def create_api_key(key_data: APIKeyCreate, request: Request):
 @api_router.get("/api-keys")
 async def get_api_key(request: Request):
     user = await get_current_user(request)
-    
     key = await db.api_keys.find_one({"user_id": user["id"]}, {"_id": 1, "provider": 1, "default_model": 1, "created_at": 1})
-    
     if not key:
         return {"has_key": False}
-    
     return {
         "id": str(key["_id"]),
         "provider": key["provider"],
@@ -341,11 +464,10 @@ async def delete_api_key(request: Request):
     await db.api_keys.delete_many({"user_id": user["id"]})
     return {"message": "تم حذف المفتاح"}
 
-# ==================== DYNAMIC MODELS FROM OPENROUTER ====================
+# ==================== DYNAMIC MODELS ====================
 
 @api_router.get("/models")
 async def get_available_models(request: Request):
-    """Get models - returns user's available models if they have API key, otherwise returns default list"""
     try:
         user = await get_current_user(request)
         api_key_doc = await db.api_keys.find_one({"user_id": user["id"]})
@@ -367,55 +489,31 @@ async def get_available_models(request: Request):
                         name = model.get("name", model_id)
                         pricing = model.get("pricing", {})
                         prompt_price = float(pricing.get("prompt", "0") or "0")
-                        
-                        # Determine if free
                         is_free = prompt_price == 0
-                        
-                        # Get context length
                         context_length = model.get("context_length", 0)
-                        
-                        # Extract provider from model id
                         provider = model_id.split("/")[0] if "/" in model_id else "unknown"
                         provider_names = {
-                            "openai": "OpenAI",
-                            "anthropic": "Anthropic",
-                            "google": "Google",
-                            "meta-llama": "Meta",
-                            "mistralai": "Mistral",
-                            "cohere": "Cohere",
-                            "perplexity": "Perplexity",
-                            "deepseek": "DeepSeek",
-                            "qwen": "Qwen"
+                            "openai": "OpenAI", "anthropic": "Anthropic", "google": "Google",
+                            "meta-llama": "Meta", "mistralai": "Mistral", "cohere": "Cohere",
+                            "perplexity": "Perplexity", "deepseek": "DeepSeek", "qwen": "Qwen"
                         }
-                        
                         models.append({
                             "id": model_id,
                             "name": name,
                             "provider": provider_names.get(provider, provider.title()),
                             "is_free": is_free,
-                            "context_length": context_length,
-                            "pricing": {
-                                "prompt": pricing.get("prompt", "0"),
-                                "completion": pricing.get("completion", "0")
-                            }
+                            "context_length": context_length
                         })
-                    
-                    # Sort: free first, then by provider
                     models.sort(key=lambda x: (not x["is_free"], x["provider"], x["name"]))
                     return models
     except:
         pass
     
-    # Return default models if no API key or error
     return [
         {"id": "openai/gpt-4o", "name": "GPT-4o", "provider": "OpenAI", "is_free": False, "context_length": 128000},
         {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "provider": "OpenAI", "is_free": False, "context_length": 128000},
-        {"id": "openai/gpt-3.5-turbo", "name": "GPT-3.5 Turbo", "provider": "OpenAI", "is_free": False, "context_length": 16385},
         {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet", "provider": "Anthropic", "is_free": False, "context_length": 200000},
-        {"id": "anthropic/claude-3-haiku", "name": "Claude 3 Haiku", "provider": "Anthropic", "is_free": False, "context_length": 200000},
         {"id": "google/gemini-pro-1.5", "name": "Gemini Pro 1.5", "provider": "Google", "is_free": False, "context_length": 1000000},
-        {"id": "meta-llama/llama-3.1-70b-instruct", "name": "Llama 3.1 70B", "provider": "Meta", "is_free": False, "context_length": 131072},
-        {"id": "mistralai/mixtral-8x7b-instruct", "name": "Mixtral 8x7B", "provider": "Mistral", "is_free": False, "context_length": 32768},
     ]
 
 # ==================== PROJECT ROUTES ====================
@@ -424,7 +522,6 @@ async def get_available_models(request: Request):
 async def create_project(project_data: ProjectCreate, request: Request):
     user = await get_current_user(request)
     
-    # Get user's default model
     api_key = await db.api_keys.find_one({"user_id": user["id"]})
     default_model = api_key["default_model"] if api_key else "openai/gpt-4o"
     
@@ -440,21 +537,17 @@ async def create_project(project_data: ProjectCreate, request: Request):
     result = await db.projects.insert_one(project_doc)
     project_id = str(result.inserted_id)
     
-    # Create initial system message
+    # Create initial system message with Vibe Coding style
     system_message = {
         "project_id": project_id,
         "role": "assistant",
-        "content": f"""مرحباً! أنا مساعدك الذكي في BuildMap. سأساعدك في تحويل فكرتك إلى مشروع تقني منظم.
+        "content": f"""مرحباً! أنا مساعدك في BuildMap.
 
-لنبدأ بفهم فكرتك بشكل أفضل. سأطرح عليك بعض الأسئلة:
+سأساعدك في تحويل فكرتك إلى مشروع تقني متكامل. لنبدأ بفهم رؤيتك بشكل أعمق.
 
-ما نوع المشروع الذي تفكر فيه؟ (تطبيق ويب، تطبيق موبايل، API، نظام متكامل...)
+فكرتك: {project_data.idea}
 
-من هي الفئة المستهدفة؟ (مستخدمين عاديين، شركات، مطورين...)
-
-ما المشكلة التي يحلها مشروعك؟
-
-أخبرني المزيد عن فكرتك: {project_data.idea}""",
+أولاً، ما نوع المشروع الذي تتخيله؟""",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.messages.insert_one(system_message)
@@ -536,7 +629,6 @@ async def update_project(project_id: str, update_data: ProjectUpdate, request: R
         update_dict["selected_model"] = update_data.selected_model
     
     await db.projects.update_one({"_id": ObjectId(project_id)}, {"$set": update_dict})
-    
     return {"message": "تم التحديث"}
 
 @api_router.delete("/projects/{project_id}")
@@ -556,6 +648,38 @@ async def delete_project(project_id: str, request: Request):
     await db.outputs.delete_many({"project_id": project_id})
     
     return {"message": "تم حذف المشروع"}
+
+# ==================== CONVERSATION ANALYSIS ENDPOINT ====================
+
+@api_router.get("/projects/{project_id}/analysis")
+async def get_conversation_analysis(project_id: str, request: Request):
+    """Get conversation analysis including progress, suggestions, and project summary"""
+    user = await get_current_user(request)
+    
+    try:
+        project = await db.projects.find_one({"_id": ObjectId(project_id), "user_id": user["id"]})
+    except:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
+    if not project:
+        raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
+    
+    # Get messages
+    messages = await db.messages.find(
+        {"project_id": project_id},
+        {"_id": 0, "role": 1, "content": 1}
+    ).to_list(100)
+    
+    # Analyze conversation
+    analysis = analyze_conversation_progress(messages, project["idea"])
+    
+    # Get smart suggestions
+    suggestions = get_smart_suggestions(analysis["current_stage"], " ".join([m["content"] for m in messages]))
+    
+    return {
+        **analysis,
+        "suggestions": suggestions
+    }
 
 # ==================== MESSAGE ROUTES ====================
 
@@ -598,7 +722,6 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
     if not project:
         raise HTTPException(status_code=404, detail=get_error_message("project_not_found"))
     
-    # Get user's API key
     api_key_doc = await db.api_keys.find_one({"user_id": user["id"]})
     if not api_key_doc:
         raise HTTPException(status_code=400, detail=get_error_message("api_key_required"))
@@ -614,33 +737,55 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
     }
     await db.messages.insert_one(user_message)
     
-    # Get conversation history (last 15 messages)
+    # Get conversation history
     history = await db.messages.find(
         {"project_id": project_id},
         {"_id": 0, "role": 1, "content": 1}
     ).sort("created_at", -1).limit(15).to_list(15)
     history.reverse()
     
-    # Prepare messages for OpenRouter
-    system_prompt = """أنت مساعد ذكي في منصة BuildMap. مهمتك هي مساعدة المستخدم في تحويل أفكاره العشوائية إلى مشاريع تقنية منظمة.
+    # Analyze current progress
+    all_messages = await db.messages.find(
+        {"project_id": project_id},
+        {"_id": 0, "role": 1, "content": 1}
+    ).to_list(100)
+    analysis = analyze_conversation_progress(all_messages, project["idea"])
+    
+    # Build smart system prompt based on stage
+    stage_prompts = {
+        "idea": "ركز على فهم نوع المشروع والرؤية العامة. اسأل عن نوع التطبيق وما يميزه.",
+        "audience": "اسأل عن الفئة المستهدفة واحتياجاتهم. من سيستخدم هذا المشروع؟",
+        "problem": "استكشف المشكلة التي يحلها المشروع. ما القيمة التي سيقدمها؟",
+        "features": "حدد الميزات الرئيسية والإضافية. ما الوظائف الأساسية؟",
+        "technical": "ناقش الجوانب التقنية: التقنيات، قاعدة البيانات، البنية.",
+        "ready": "المشروع جاهز للتوليد. اعرض ملخصاً واسأل إن كان يريد إضافة شيء."
+    }
+    
+    current_stage_prompt = stage_prompts.get(analysis["current_stage"], "")
+    
+    system_prompt = f"""أنت مساعد ذكي في منصة BuildMap متخصص في تحويل الأفكار إلى مشاريع تقنية.
 
-قواعد المحادثة:
-1. ابدأ بطرح 3 أسئلة أساسية: نوع المشروع، الفئة المستهدفة، المشكلة المراد حلها
-2. اطرح أسئلة تدريجية ذكية لفهم الفكرة بشكل أعمق
-3. إذا كان هناك غموض، اطلب توضيح
-4. لا تربك المستخدم بأسئلة كثيرة دفعة واحدة
-5. عندما تشعر أنك فهمت الفكرة بشكل كافٍ، أخبر المستخدم أنك جاهز لتوليد المخرجات
+أسلوبك:
+- محادثة طبيعية وودية
+- أسئلة ذكية ومحددة (سؤال أو اثنين في كل رد)
+- لا تكرر نفسك
+- قدم اقتراحات مفيدة
+- استخدم التنسيق المناسب
 
-عندما تكون جاهزاً لتوليد المخرجات، أضف في نهاية ردك:
+المرحلة الحالية: {analysis["current_stage"]}
+التقدم: {analysis["total_progress"]:.0f}%
+
+{current_stage_prompt}
+
+عندما تشعر أن المعلومات كافية (تقدم 70% أو أكثر)، أخبر المستخدم أنه يمكنه توليد المخرجات الآن وأضف:
 [READY_TO_GENERATE]
 
-تحدث بالعربية دائماً وكن ودوداً ومحترفاً."""
+تحدث بالعربية."""
 
     messages_for_api = [{"role": "system", "content": system_prompt}]
     for msg in history:
         messages_for_api.append({"role": msg["role"], "content": msg["content"]})
     
-    # Call OpenRouter API
     try:
         async with httpx.AsyncClient(timeout=60.0) as http_client:
             response = await http_client.post(
@@ -654,7 +799,7 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
                 json={
                     "model": project["selected_model"],
                     "messages": messages_for_api,
-                    "max_tokens": 2000,
+                    "max_tokens": 1500,
                     "temperature": 0.7
                 }
             )
@@ -666,11 +811,6 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
             elif response.status_code == 429:
                 raise HTTPException(status_code=429, detail=get_error_message("rate_limit"))
             elif response.status_code != 200:
-                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
-                error_msg = error_data.get("error", {}).get("message", "")
-                if "model" in error_msg.lower():
-                    raise HTTPException(status_code=400, detail=get_error_message("model_not_available"))
-                logger.error(f"OpenRouter error: {response.status_code} - {response.text}")
                 raise HTTPException(status_code=500, detail=get_error_message("ai_connection_error"))
             
             result = response.json()
@@ -684,11 +824,9 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
         logger.error(f"API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=get_error_message("ai_connection_error"))
     
-    # Check if ready to generate
     ready_to_generate = "[READY_TO_GENERATE]" in assistant_content
     clean_content = assistant_content.replace("[READY_TO_GENERATE]", "").strip()
     
-    # Save assistant message
     assistant_message = {
         "project_id": project_id,
         "role": "assistant",
@@ -697,18 +835,23 @@ async def send_message(project_id: str, message_data: MessageCreate, request: Re
     }
     result = await db.messages.insert_one(assistant_message)
     
-    # Update project timestamp
     await db.projects.update_one(
         {"_id": ObjectId(project_id)},
         {"$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
     )
+    
+    # Get updated analysis
+    all_messages.append({"role": "user", "content": message_data.content})
+    all_messages.append({"role": "assistant", "content": clean_content})
+    updated_analysis = analyze_conversation_progress(all_messages, project["idea"])
     
     return {
         "id": str(result.inserted_id),
         "role": "assistant",
         "content": clean_content,
         "created_at": assistant_message["created_at"],
-        "ready_to_generate": ready_to_generate
+        "ready_to_generate": ready_to_generate or updated_analysis["total_progress"] >= 70,
+        "analysis": updated_analysis
     }
 
 # ==================== OUTPUT GENERATION ====================
@@ -731,7 +874,6 @@ async def generate_outputs(project_id: str, request: Request):
     
     api_key = decrypt_api_key(api_key_doc["encrypted_key"])
     
-    # Get conversation summary
     messages = await db.messages.find(
         {"project_id": project_id},
         {"_id": 0, "role": 1, "content": 1}
@@ -741,89 +883,90 @@ async def generate_outputs(project_id: str, request: Request):
     
     outputs = {}
     
-    # Generate each output type
     output_prompts = {
-        "frontend_readme": """بناءً على المحادثة التالية، أنشئ ملف README-Frontend.md يتضمن:
-- وصف الواجهة الأمامية
-- المكونات الرئيسية
-- هيكل الملفات المقترح
-- التقنيات المستخدمة
-- تعليمات التشغيل
+        "frontend_readme": """بناءً على المحادثة، أنشئ ملف README-Frontend.md احترافي يتضمن:
+# اسم المشروع - Frontend
+
+## نظرة عامة
+## المكونات الرئيسية
+## هيكل الملفات
+## التقنيات المستخدمة
+## تعليمات التشغيل
+## المتغيرات البيئية
 
 المحادثة:
 {conversation}
 
-اكتب الملف بتنسيق Markdown باللغة العربية.""",
+اكتب بتنسيق Markdown احترافي.""",
         
-        "backend_readme": """بناءً على المحادثة التالية، أنشئ ملف README-Backend.md يتضمن:
-- وصف الخادم الخلفي
-- نقاط النهاية (API Endpoints)
-- هيكل قاعدة البيانات
-- التقنيات المستخدمة
-- تعليمات التشغيل
+        "backend_readme": """بناءً على المحادثة، أنشئ ملف README-Backend.md احترافي يتضمن:
+# اسم المشروع - Backend
+
+## نظرة عامة
+## API Endpoints (مع الأمثلة)
+## هيكل قاعدة البيانات
+## التقنيات المستخدمة
+## تعليمات التشغيل
+## المتغيرات البيئية
 
 المحادثة:
 {conversation}
 
-اكتب الملف بتنسيق Markdown باللغة العربية.""",
+اكتب بتنسيق Markdown احترافي.""",
         
-        "plan": """بناءً على المحادثة التالية، أنشئ ملف Plan.md يتضمن:
-- خطة العمل المرحلية
-- المهام المطلوبة
-- الأولويات
-- الجدول الزمني المقترح
-- المخاطر المحتملة
+        "plan": """بناءً على المحادثة، أنشئ خطة عمل مفصلة:
+# خطة تنفيذ المشروع
+
+## المرحلة 1: الإعداد
+## المرحلة 2: التطوير الأساسي
+## المرحلة 3: الميزات الإضافية
+## المرحلة 4: الاختبار
+## المرحلة 5: الإطلاق
+
+لكل مرحلة: المهام، المدة المقدرة، المخرجات
 
 المحادثة:
-{conversation}
-
-اكتب الملف بتنسيق Markdown باللغة العربية.""",
+{conversation}""",
         
-        "skills": """بناءً على المحادثة التالية، أنشئ ملف Skills.md يتضمن:
-- المهارات التقنية المطلوبة
-- مستوى الخبرة المطلوب لكل مهارة
-- موارد تعليمية مقترحة
-- الأدوات والتقنيات
+        "skills": """بناءً على المحادثة، حدد المهارات المطلوبة:
+# المهارات والموارد التعليمية
+
+## المهارات التقنية المطلوبة
+(لكل مهارة: الاسم، المستوى المطلوب، موارد تعليمية)
+
+## الأدوات والبرمجيات
+## نصائح للتعلم
 
 المحادثة:
-{conversation}
-
-اكتب الملف بتنسيق Markdown باللغة العربية.""",
+{conversation}""",
         
-        "evaluation": """بناءً على المحادثة التالية، قدم تقييم شامل للمشروع يتضمن:
-- نقاط القوة
-- نقاط الضعف
-- الفرص
-- التحديات
-- توصيات
-- تقييم الجدوى (من 10)
+        "evaluation": """بناءً على المحادثة، قدم تقييم SWOT:
+# تقييم المشروع
+
+## نقاط القوة
+## نقاط الضعف
+## الفرص
+## التهديدات
+## التوصيات
+## تقييم الجدوى: X/10
 
 المحادثة:
-{conversation}
-
-اكتب التقييم باللغة العربية.""",
+{conversation}""",
         
-        "mindmap": """بناءً على المحادثة التالية، أنشئ خريطة ذهنية للمشروع بتنسيق JSON:
+        "mindmap": """بناءً على المحادثة، أنشئ خريطة ذهنية JSON:
 {
   "title": "اسم المشروع",
   "children": [
-    {
-      "title": "الفرع الأول",
-      "children": [...]
-    }
+    {"title": "الميزات", "children": [...]},
+    {"title": "التقنيات", "children": [...]},
+    {"title": "المراحل", "children": [...]}
   ]
 }
-
-يجب أن تشمل الخريطة:
-- الميزات الرئيسية
-- المكونات التقنية
-- الفئات المستهدفة
-- مراحل التنفيذ
 
 المحادثة:
 {conversation}
 
-أعد JSON فقط بدون أي نص إضافي."""
+أعد JSON فقط."""
     }
     
     async with httpx.AsyncClient(timeout=120.0) as http_client:
@@ -833,15 +976,11 @@ async def generate_outputs(project_id: str, request: Request):
                     "https://openrouter.ai/api/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": "https://buildmap.app",
-                        "X-Title": "BuildMap"
+                        "Content-Type": "application/json"
                     },
                     json={
                         "model": project["selected_model"],
-                        "messages": [
-                            {"role": "user", "content": prompt.format(conversation=conversation_text)}
-                        ],
+                        "messages": [{"role": "user", "content": prompt.format(conversation=conversation_text)}],
                         "max_tokens": 3000,
                         "temperature": 0.5
                     }
@@ -851,13 +990,11 @@ async def generate_outputs(project_id: str, request: Request):
                     result = response.json()
                     outputs[key] = result["choices"][0]["message"]["content"]
                 else:
-                    outputs[key] = "تعذر توليد هذا المحتوى، يرجى المحاولة مجدداً"
-                    
+                    outputs[key] = "تعذر توليد هذا المحتوى"
             except Exception as e:
                 logger.error(f"Error generating {key}: {str(e)}")
-                outputs[key] = "تعذر توليد هذا المحتوى، يرجى المحاولة مجدداً"
+                outputs[key] = "تعذر توليد هذا المحتوى"
     
-    # Save outputs
     output_doc = {
         "project_id": project_id,
         "frontend_readme": outputs.get("frontend_readme", ""),
@@ -869,7 +1006,6 @@ async def generate_outputs(project_id: str, request: Request):
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
-    # Upsert output
     await db.outputs.update_one(
         {"project_id": project_id},
         {"$set": output_doc},
@@ -901,12 +1037,10 @@ async def get_outputs(project_id: str, request: Request):
 
 @api_router.get("/")
 async def root():
-    return {"message": "BuildMap API", "version": "1.0.0"}
+    return {"message": "BuildMap API", "version": "2.0.0"}
 
-# Include the router
 app.include_router(api_router)
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -915,7 +1049,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Startup
 @app.on_event("startup")
 async def startup():
     await db.users.create_index("email", unique=True)
