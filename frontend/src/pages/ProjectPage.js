@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -134,10 +134,7 @@ const ProjectPage = () => {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
 
-  useEffect(() => { fetchProjectData(); }, [projectId]);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-  const fetchProjectData = async () => {
+  const fetchProjectData = useCallback(async () => {
     try {
       const [projectRes, messagesRes, modelsRes] = await Promise.all([
         axios.get(`${API}/projects/${projectId}`),
@@ -151,12 +148,16 @@ const ProjectPage = () => {
       try {
         const analysisRes = await axios.get(`${API}/projects/${projectId}/analysis`);
         setAnalysis(analysisRes.data);
-      } catch (e) {}
+      } catch (e) {
+        console.log('Analysis not yet available');
+      }
       
       try {
         const outputsRes = await axios.get(`${API}/projects/${projectId}/outputs`);
         setOutputs(outputsRes.data);
-      } catch (e) {}
+      } catch (e) {
+        console.log('Outputs not yet available');
+      }
       
       fetchSuggestions();
       
@@ -166,9 +167,17 @@ const ProjectPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, navigate]);
 
-  const fetchSuggestions = async () => {
+  useEffect(() => { 
+    fetchProjectData(); 
+  }, [fetchProjectData]);
+  
+  useEffect(() => { 
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); 
+  }, [messages]);
+
+  const fetchSuggestions = useCallback(async () => {
     setLoadingSuggestions(true);
     try {
       const res = await axios.get(`${API}/projects/${projectId}/suggestions`);
@@ -178,7 +187,7 @@ const ProjectPage = () => {
     } finally {
       setLoadingSuggestions(false);
     }
-  };
+  }, [projectId]);
 
   const handleSendMessage = async (e, customMessage = null) => {
     e?.preventDefault();
@@ -227,7 +236,9 @@ const ProjectPage = () => {
               toast.error(event.content);
               setMessages(prev => prev.filter(m => m.id !== streamingMsgId));
             }
-          } catch (parseErr) {}
+          } catch (parseErr) {
+            console.log('Error parsing SSE event:', parseErr);
+          }
         }
       }
     } catch (error) {
@@ -312,12 +323,13 @@ const ProjectPage = () => {
   const renderMarkdown = (content) => {
     if (!content) return null;
     return content.split('\n').map((line, i) => {
-      if (line.startsWith('# ')) return <h1 key={i} className="text-base sm:text-lg font-bold mb-2 text-foreground">{line.slice(2)}</h1>;
-      if (line.startsWith('## ')) return <h2 key={i} className="text-sm sm:text-base font-semibold mb-2 text-foreground">{line.slice(3)}</h2>;
-      if (line.startsWith('### ')) return <h3 key={i} className="text-xs sm:text-sm font-medium mb-1 text-foreground">{line.slice(4)}</h3>;
-      if (line.startsWith('- ')) return <li key={i} className="mr-3 mb-0.5 text-muted-foreground text-xs">{line.slice(2)}</li>;
-      if (line.startsWith('```') || line.trim() === '') return line.trim() === '' ? <br key={i} /> : null;
-      return <p key={i} className="mb-1.5 text-muted-foreground text-xs leading-relaxed">{line}</p>;
+      const key = `${line.substring(0, 20)}-${i}`;
+      if (line.startsWith('# ')) return <h1 key={key} className="text-base sm:text-lg font-bold mb-2 text-foreground">{line.slice(2)}</h1>;
+      if (line.startsWith('## ')) return <h2 key={key} className="text-sm sm:text-base font-semibold mb-2 text-foreground">{line.slice(3)}</h2>;
+      if (line.startsWith('### ')) return <h3 key={key} className="text-xs sm:text-sm font-medium mb-1 text-foreground">{line.slice(4)}</h3>;
+      if (line.startsWith('- ')) return <li key={key} className="mr-3 mb-0.5 text-muted-foreground text-xs">{line.slice(2)}</li>;
+      if (line.startsWith('```') || line.trim() === '') return line.trim() === '' ? <br key={key} /> : null;
+      return <p key={key} className="mb-1.5 text-muted-foreground text-xs leading-relaxed">{line}</p>;
     });
   };
 
@@ -683,7 +695,7 @@ const ProjectPage = () => {
                       <p className="text-[9px] text-muted-foreground mb-0.5 font-medium">الميزات:</p>
                       <div className="flex flex-wrap gap-1">
                         {analysis.project_summary.features.slice(0, 3).map((f, i) => (
-                          <Badge key={i} variant="outline" className="text-[8px] h-4 px-1">{f.slice(0, 15)}</Badge>
+                          <Badge key={`feature-${f}-${i}`} variant="outline" className="text-[8px] h-4 px-1">{f.slice(0, 15)}</Badge>
                         ))}
                       </div>
                     </div>

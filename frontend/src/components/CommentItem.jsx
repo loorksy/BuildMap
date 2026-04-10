@@ -19,7 +19,7 @@ const COMMENT_TYPES = {
   question: { label: '❓ سؤال', color: 'default' }
 };
 
-const CommentItem = ({ comment, projectId, onReplyAdded, onCommentDeleted, isReply = false }) => {
+const CommentItem = ({ comment, projectId, onReplyAdded, onCommentDeleted, isReply = false, showReplies = true }) => {
   const { user } = useAuth();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -137,19 +137,12 @@ const CommentItem = ({ comment, projectId, onReplyAdded, onCommentDeleted, isRep
             </div>
           )}
 
-          {/* Replies */}
-          {comment.replies && comment.replies.length > 0 && (
-            <div className="mt-4 space-y-3">
-              {comment.replies.map(reply => (
-                <CommentItem
-                  key={reply.id}
-                  comment={reply}
-                  projectId={projectId}
-                  onReplyAdded={onReplyAdded}
-                  onCommentDeleted={onCommentDeleted}
-                  isReply
-                />
-              ))}
+          {/* Replies - Hidden when showReplies is false (handled by parent) */}
+          {showReplies && comment.replies && comment.replies.length > 0 && (
+            <div className="mt-4 space-y-3 mr-4">
+              <p className="text-xs text-muted-foreground">
+                {comment.replies.length} {comment.replies.length === 1 ? 'رد' : 'ردود'}
+              </p>
             </div>
           )}
         </div>

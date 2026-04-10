@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -94,11 +94,7 @@ const DashboardPage = () => {
   const [publishCategory, setPublishCategory] = useState('');
   const [publishing, setPublishing] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [projectsRes, modelsRes, apiKeyRes] = await Promise.all([
         axios.get(`${API}/projects`),
@@ -117,7 +113,11 @@ const DashboardPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const fetchModels = async () => {
     setLoadingModels(true);

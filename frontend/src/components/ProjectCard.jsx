@@ -41,7 +41,7 @@ const ProjectCard = ({ project }) => {
           <div className="flex flex-wrap gap-1.5 mb-3">
             {project.tech_stack.slice(0, 4).map((tech, idx) => (
               <span 
-                key={idx}
+                key={`tech-${tech}-${idx}`}
                 className="px-2 py-0.5 bg-primary/5 text-primary text-xs rounded-md border border-primary/10"
               >
                 {tech}

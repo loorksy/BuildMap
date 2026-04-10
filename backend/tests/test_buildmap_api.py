@@ -11,8 +11,8 @@ import os
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
 # Test credentials from test_credentials.md
-TEST_EMAIL = "test@buildmap.com"
-TEST_PASSWORD = "test123456"
+TEST_EMAIL = os.environ.get('TEST_EMAIL', 'test@buildmap.com')
+TEST_PASSWORD = os.environ.get('TEST_PASSWORD', 'test123456')
 TEST_NAME = "مستخدم تجريبي"
 
 
@@ -282,7 +282,7 @@ class TestExportEndpoint:
         project_id = project_without_outputs["id"]
         response = auth_session.get(f"{BASE_URL}/api/projects/{project_id}/export")
         assert response.status_code == 404, f"Expected 404, got {response.status_code}"
-        print(f"✓ Export correctly returns 404 when no outputs exist")
+        print("✓ Export correctly returns 404 when no outputs exist")
     
     def test_export_returns_zip_when_outputs_exist(self, auth_session):
         """Test /api/projects/{id}/export returns ZIP when outputs exist"""
@@ -302,7 +302,7 @@ class TestExportEndpoint:
         assert response.status_code == 200
         assert "application/zip" in response.headers.get("content-type", "")
         assert len(response.content) > 0
-        print(f"✓ Export returns valid ZIP file for project with outputs")
+        print("✓ Export returns valid ZIP file for project with outputs")
 
 
 class TestMessagesEndpoint:
@@ -356,14 +356,14 @@ class TestMessagesEndpoint:
             # Expected when no API key is configured
             data = response.json()
             assert "detail" in data
-            print(f"✓ Non-streaming endpoint working (returns API key required error as expected)")
+            print("✓ Non-streaming endpoint working (returns API key required error as expected)")
         else:
             # Success case
             data = response.json()
             assert "id" in data
             assert "role" in data
             assert "content" in data
-            print(f"✓ Non-streaming endpoint working (message sent successfully)")
+            print("✓ Non-streaming endpoint working (message sent successfully)")
 
 
 class TestStreamingEndpoint:
@@ -429,7 +429,7 @@ class TestStreamingEndpoint:
         assert "type" in event_data, "SSE event missing 'type' field"
         assert event_data["type"] in ["chunk", "done", "error"], f"Unknown event type: {event_data['type']}"
         
-        print(f"✓ Streaming endpoint returns proper SSE format")
+        print("✓ Streaming endpoint returns proper SSE format")
         print(f"  - Event type: {event_data['type']}")
         if event_data["type"] == "error":
             print(f"  - Error content: {event_data.get('content', 'N/A')}")
@@ -473,7 +473,7 @@ class TestStreamingEndpoint:
             error_content = error_events[0].get("content", "")
             # Should contain Arabic error message about API key
             assert len(error_content) > 0, "Error event has empty content"
-            print(f"✓ Streaming endpoint returns proper error event for invalid API key")
+            print("✓ Streaming endpoint returns proper error event for invalid API key")
             print(f"  - Error message: {error_content}")
         else:
             # If no error, we might have a valid API key - check for chunk/done events

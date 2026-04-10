@@ -414,6 +414,11 @@ class AdvancedNLP:
         # Complexity scoring
         complexity_score = (feature_count * 2) + (tech_count * 3)
         
+        # Initialize default values
+        level = "simple"
+        level_ar = "بسيط"
+        estimated_days = "1-2 أسابيع"
+        
         if complexity_score < 10:
             level = "simple"
             level_ar = "بسيط"
