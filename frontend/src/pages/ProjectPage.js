@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import InteractiveMindMap from '../components/InteractiveMindMap';
 import { 
   Select, 
@@ -16,7 +15,6 @@ import {
 } from '../components/ui/select';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Badge } from '../components/ui/badge';
-import { Progress } from '../components/ui/progress';
 import { 
   ArrowRight, 
   Send, 
@@ -50,12 +48,10 @@ import {
   Bell,
   Search,
   Terminal,
-  Triangle,
   Plus,
   Eye,
   ChevronDown,
   ChevronUp,
-  Cpu,
   FolderArchive,
   Shield,
   BookOpen,
@@ -65,55 +61,100 @@ import {
   Target,
   Palette,
   Rocket,
-  Settings,
   PanelRight,
-  PanelRightClose
+  PanelRightClose,
+  X,
+  CreditCard,
+  Settings,
+  Mail,
+  Star,
+  TrendingUp,
+  Lock,
+  Share2,
+  FileSearch,
+  Languages,
+  Wallet,
+  MapPin
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Icon mapping for suggestions
-const iconMap = {
-  'globe': Globe, 'smartphone': Smartphone, 'server': Server, 'layers': Layers,
-  'users': Users, 'building': Building, 'code': Code, 'shopping-cart': ShoppingCart,
-  'clock': Clock, 'message-circle': MessageCircle, 'database': Database, 'zap': Zap,
-  'log-in': LogIn, 'layout-dashboard': LayoutDashboard, 'bell': Bell, 'search': Search,
-  'message-square': MessageSquare, 'bar-chart': BarChart3, 'terminal': Terminal,
-  'triangle': Triangle, 'sparkles': Sparkles, 'plus': Plus, 'lightbulb': Lightbulb,
-  'target': Target, 'palette': Palette, 'rocket': Rocket, 'settings': Settings
-};
-
-// Stage-based suggestions
-const stageSuggestions = {
-  'idea_understanding': [
-    { text: 'تطبيق ويب', icon: 'globe' }, { text: 'تطبيق موبايل', icon: 'smartphone' },
-    { text: 'منصة تجارة إلكترونية', icon: 'shopping-cart' }, { text: 'نظام إدارة', icon: 'layout-dashboard' },
-  ],
-  'target_audience': [
-    { text: 'أفراد', icon: 'users' }, { text: 'شركات صغيرة', icon: 'building' },
-    { text: 'مؤسسات كبيرة', icon: 'building' }, { text: 'مطورين', icon: 'code' },
-  ],
-  'features': [
-    { text: 'نظام تسجيل دخول', icon: 'log-in' }, { text: 'لوحة تحكم', icon: 'layout-dashboard' },
-    { text: 'إشعارات', icon: 'bell' }, { text: 'بحث متقدم', icon: 'search' },
-  ],
-  'technical': [
-    { text: 'React', icon: 'code' }, { text: 'Node.js', icon: 'server' },
-    { text: 'قاعدة بيانات', icon: 'database' }, { text: 'API', icon: 'terminal' },
-  ],
-  'design': [
-    { text: 'تصميم بسيط', icon: 'palette' }, { text: 'وضع داكن', icon: 'palette' },
-    { text: 'تصميم عصري', icon: 'sparkles' },
-  ],
-  'timeline': [
-    { text: 'أسبوع', icon: 'clock' }, { text: 'شهر', icon: 'clock' },
-    { text: 'MVP سريع', icon: 'rocket' },
-  ],
-  'default': [
-    { text: 'أكمل الفكرة', icon: 'lightbulb' }, { text: 'أضف ميزة', icon: 'plus' },
-  ]
-};
+// Project feature suggestions with detailed prompts
+const projectSuggestions = [
+  {
+    id: 'new_customers',
+    label: 'عملاء جدد',
+    icon: Users,
+    prompt: 'أريد إضافة نظام لإدارة العملاء الجدد يشمل:\n- صفحة تسجيل عملاء جدد\n- نموذج جمع بيانات العميل (الاسم، البريد، الهاتف)\n- إشعار ترحيبي للعميل الجديد\n- لوحة تحكم لعرض العملاء الجدد'
+  },
+  {
+    id: 'payments',
+    label: 'نظام دفع',
+    icon: CreditCard,
+    prompt: 'أريد إضافة نظام دفع إلكتروني يشمل:\n- بوابة دفع متعددة (بطاقات، محافظ إلكترونية)\n- صفحة إتمام الشراء\n- فواتير تلقائية\n- سجل المعاملات المالية'
+  },
+  {
+    id: 'notifications',
+    label: 'إشعارات',
+    icon: Bell,
+    prompt: 'أريد إضافة نظام إشعارات يشمل:\n- إشعارات فورية داخل التطبيق\n- إشعارات بريد إلكتروني\n- إشعارات SMS اختيارية\n- إعدادات تخصيص الإشعارات للمستخدم'
+  },
+  {
+    id: 'dashboard',
+    label: 'لوحة تحكم',
+    icon: LayoutDashboard,
+    prompt: 'أريد إضافة لوحة تحكم إدارية تشمل:\n- إحصائيات عامة (المستخدمين، المبيعات، الزيارات)\n- رسوم بيانية تفاعلية\n- تقارير قابلة للتصدير\n- فلترة حسب التاريخ'
+  },
+  {
+    id: 'search',
+    label: 'بحث متقدم',
+    icon: Search,
+    prompt: 'أريد إضافة نظام بحث متقدم يشمل:\n- بحث نصي سريع\n- فلترة متعددة المعايير\n- اقتراحات تلقائية أثناء الكتابة\n- حفظ عمليات البحث السابقة'
+  },
+  {
+    id: 'chat',
+    label: 'دردشة مباشرة',
+    icon: MessageCircle,
+    prompt: 'أريد إضافة نظام دردشة مباشرة يشمل:\n- محادثات فورية بين المستخدمين\n- دعم الملفات والصور\n- حالة الاتصال (متصل/غير متصل)\n- أرشيف المحادثات'
+  },
+  {
+    id: 'reviews',
+    label: 'تقييمات',
+    icon: Star,
+    prompt: 'أريد إضافة نظام تقييمات ومراجعات يشمل:\n- تقييم بالنجوم (1-5)\n- كتابة مراجعات نصية\n- الرد على المراجعات\n- عرض متوسط التقييم'
+  },
+  {
+    id: 'analytics',
+    label: 'تحليلات',
+    icon: TrendingUp,
+    prompt: 'أريد إضافة نظام تحليلات يشمل:\n- تتبع سلوك المستخدم\n- تحليل مصادر الزيارات\n- معدلات التحويل\n- تقارير أداء مفصلة'
+  },
+  {
+    id: 'security',
+    label: 'حماية متقدمة',
+    icon: Lock,
+    prompt: 'أريد إضافة ميزات أمان متقدمة تشمل:\n- تسجيل دخول ثنائي (2FA)\n- تشفير البيانات الحساسة\n- سجل نشاط المستخدم\n- إدارة الجلسات النشطة'
+  },
+  {
+    id: 'sharing',
+    label: 'مشاركة اجتماعية',
+    icon: Share2,
+    prompt: 'أريد إضافة ميزات المشاركة الاجتماعية تشمل:\n- مشاركة على فيسبوك، تويتر، واتساب\n- روابط قابلة للمشاركة\n- معاينة عند المشاركة (Open Graph)\n- تتبع المشاركات'
+  },
+  {
+    id: 'reports',
+    label: 'تقارير PDF',
+    icon: FileSearch,
+    prompt: 'أريد إضافة نظام تقارير PDF يشمل:\n- توليد تقارير تلقائية\n- قوالب تقارير متعددة\n- تصدير بصيغ مختلفة (PDF, Excel)\n- جدولة إرسال التقارير'
+  },
+  {
+    id: 'multilang',
+    label: 'تعدد اللغات',
+    icon: Languages,
+    prompt: 'أريد إضافة دعم تعدد اللغات يشمل:\n- دعم العربية والإنجليزية\n- تبديل سهل بين اللغات\n- ترجمة المحتوى الديناميكي\n- حفظ تفضيل اللغة للمستخدم'
+  }
+];
 
 const ProjectPage = () => {
   const { projectId } = useParams();
@@ -137,6 +178,9 @@ const ProjectPage = () => {
   const [previewFile, setPreviewFile] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  
+  // Suggestion prompt preview
+  const [selectedSuggestion, setSelectedSuggestion] = useState(null);
 
   useEffect(() => { fetchProjectData(); }, [projectId]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -167,14 +211,15 @@ const ProjectPage = () => {
     }
   };
 
-  const handleSendMessage = async (e, quickMessage = null) => {
+  const handleSendMessage = async (e, customMessage = null) => {
     e?.preventDefault();
-    const content = quickMessage || messageInput;
+    const content = customMessage || messageInput;
     if (!content.trim() || sending) return;
 
     const userMessage = { id: Date.now().toString(), role: 'user', content, created_at: new Date().toISOString() };
     setMessages(prev => [...prev, userMessage]);
     setMessageInput('');
+    setSelectedSuggestion(null);
     setSending(true);
 
     const streamingMsgId = (Date.now() + 1).toString();
@@ -222,6 +267,22 @@ const ProjectPage = () => {
       setSending(false);
       inputRef.current?.focus();
     }
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    setSelectedSuggestion(suggestion);
+    setMessageInput(suggestion.prompt);
+  };
+
+  const handleSendSuggestion = () => {
+    if (selectedSuggestion) {
+      handleSendMessage(null, selectedSuggestion.prompt);
+    }
+  };
+
+  const handleCancelSuggestion = () => {
+    setSelectedSuggestion(null);
+    setMessageInput('');
   };
 
   const handleGenerateOutputs = async () => {
@@ -290,11 +351,6 @@ const ProjectPage = () => {
     });
   };
 
-  const getCurrentStageSuggestions = () => {
-    if (analysis?.suggestions?.length > 0) return analysis.suggestions;
-    return stageSuggestions[analysis?.current_stage] || stageSuggestions['default'];
-  };
-
   const getStageInfo = (stageId) => {
     const stageNames = {
       'idea_understanding': { name: 'فهم الفكرة', icon: Lightbulb, color: 'text-yellow-500' },
@@ -327,8 +383,6 @@ const ProjectPage = () => {
     { id: 'evaluation', label: 'التقييم', icon: BarChart3, content: outputs?.evaluation, filename: 'Evaluation.md' },
     { id: 'mindmap', label: 'خريطة', icon: GitBranch, content: outputs?.mindmap, filename: 'MindMap.json' },
   ];
-
-  const currentSuggestions = getCurrentStageSuggestions();
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden" dir="rtl">
@@ -428,7 +482,7 @@ const ProjectPage = () => {
             </div>
           )}
 
-          {/* Messages Area */}
+          {/* Messages Area - Scrollable */}
           <div className="flex-1 overflow-y-auto">
             <div className="max-w-3xl mx-auto p-3 sm:p-4 space-y-3">
               {messages.length === 0 && (
@@ -441,18 +495,13 @@ const ProjectPage = () => {
                 </div>
               )}
               
-              {messages.map((message, index) => (
+              {messages.map((message) => (
                 <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-start' : 'justify-end'} animate-fade-in`}>
                   <div className={`max-w-[90%] sm:max-w-[85%] p-2.5 sm:p-3 ${message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'}`}>
                     <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm">
                       {message.content}
                       {message.isStreaming && <span className="inline-block w-1.5 h-4 bg-primary animate-pulse mr-0.5 align-middle rounded-sm" />}
                     </p>
-                    {!message.isStreaming && (
-                      <span className={`text-[9px] sm:text-[10px] mt-1.5 block ${message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                        {new Date(message.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
                   </div>
                 </div>
               ))}
@@ -504,26 +553,56 @@ const ProjectPage = () => {
               </div>
             )}
 
-            {/* Quick Suggestions */}
-            {!sending && !generating && currentSuggestions.length > 0 && (
-              <div className="px-3 sm:px-4 py-2 bg-muted/30 border-b border-border/50">
+            {/* Suggestion Preview */}
+            {selectedSuggestion && (
+              <div className="px-3 sm:px-4 py-3 bg-primary/5 border-b border-primary/20">
                 <div className="max-w-3xl mx-auto">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <Lightbulb className="w-3 h-3 text-muted-foreground" />
-                    <p className="text-[9px] sm:text-[10px] text-muted-foreground font-medium">
-                      اقتراحات {analysis?.current_stage ? `لـ${getStageInfo(analysis.current_stage).name}` : ''}:
-                    </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <selectedSuggestion.icon className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-medium text-foreground">{selectedSuggestion.label}</span>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={handleCancelSuggestion} className="h-6 w-6 p-0 rounded-md hover:bg-destructive/10 hover:text-destructive">
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  <div className="bg-card border border-border rounded-lg p-3 mb-2">
+                    <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{selectedSuggestion.prompt}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSendSuggestion} className="btn-primary rounded-lg h-8 text-xs flex-1" disabled={sending}>
+                      <Send className="w-3 h-3 ml-1" />
+                      إرسال الاقتراح
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleCancelSuggestion} className="rounded-lg h-8 text-xs">
+                      إلغاء
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Project Feature Suggestions */}
+            {!selectedSuggestion && !sending && !generating && (
+              <div className="px-3 sm:px-4 py-2.5 bg-muted/30 border-b border-border/50">
+                <div className="max-w-3xl mx-auto">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Plus className="w-3 h-3 text-muted-foreground" />
+                    <p className="text-[9px] sm:text-[10px] text-muted-foreground font-medium">إضافة ميزة للمشروع:</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {currentSuggestions.map((suggestion, idx) => {
-                      const IconComponent = iconMap[suggestion.icon] || Sparkles;
+                    {projectSuggestions.slice(0, 8).map((suggestion) => {
+                      const Icon = suggestion.icon;
                       return (
-                        <Button key={idx} variant="outline" size="sm" onClick={() => handleSendMessage(null, suggestion.text)}
-                          className="rounded-full text-[10px] sm:text-xs h-6 sm:h-7 px-2 sm:px-2.5 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
-                          data-testid={`suggestion-${idx}`}
+                        <Button
+                          key={suggestion.id}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className="rounded-full text-[10px] sm:text-xs h-7 px-2.5 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-smooth"
                         >
-                          <IconComponent className="w-2.5 h-2.5 sm:w-3 sm:h-3 ml-1" />
-                          {suggestion.text}
+                          <Icon className="w-3 h-3 ml-1" />
+                          {suggestion.label}
                         </Button>
                       );
                     })}
@@ -532,7 +611,7 @@ const ProjectPage = () => {
               </div>
             )}
 
-            {/* Input Area */}
+            {/* Input Area - Always Fixed */}
             <div className="p-3 sm:p-4 bg-background">
               <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
                 <div className="flex gap-2 items-center">
@@ -542,10 +621,10 @@ const ProjectPage = () => {
                     onChange={(e) => setMessageInput(e.target.value)}
                     placeholder="اكتب رسالتك..."
                     className="flex-1 h-9 sm:h-10 pr-3 pl-10 rounded-lg border-border input-enhanced text-xs sm:text-sm"
-                    disabled={sending || generating}
+                    disabled={sending || generating || selectedSuggestion}
                     data-testid="chat-input"
                   />
-                  <Button type="submit" disabled={!messageInput.trim() || sending || generating} className="h-9 sm:h-10 w-9 sm:w-10 btn-primary rounded-lg shrink-0" data-testid="send-message-btn">
+                  <Button type="submit" disabled={!messageInput.trim() || sending || generating || selectedSuggestion} className="h-9 sm:h-10 w-9 sm:w-10 btn-primary rounded-lg shrink-0" data-testid="send-message-btn">
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </Button>
                 </div>
